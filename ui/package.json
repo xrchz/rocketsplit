@@ -1,0 +1,15 @@
+{
+  "name": "RocketSplit",
+  "type": "module",
+  "version": "0.0.1",
+  "license": "GPL-3.0-or-later",
+  "repository": "github:xrchz/rocketsplit",
+  "description": "UI for RocketSplit rewards splitter contract",
+  "dependencies": {
+    "dotenv": "^16",
+    "ethers": "^6",
+    "express": "^4",
+    "socket.io": "^4",
+    "commander": "^9"
+  }
+}

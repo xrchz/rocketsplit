@@ -39,6 +39,7 @@ nodeAddress: public(address)
 ETHOwner: public(address)
 RPLOwner: public(address)
 pendingWithdrawalAddress: public(address)
+pendingForce: public(bool)
 ETHFee: public(Fee)
 RPLFee: public(Fee)
 RPLPrincipal: public(uint256)
@@ -146,12 +147,14 @@ def ensSetName(_name: String[256]):
     EnsRegInterface(ensRegAddress).owner(addrReverseNode)).setName(_name)
 
 @external
-def changeWithdrawalAddress(_newWithdrawalAddress: address):
+def changeWithdrawalAddress(_newWithdrawalAddress: address, _force: bool):
   assert msg.sender == self.ETHOwner, "auth"
   self.pendingWithdrawalAddress = _newWithdrawalAddress
+  self.pendingForce = _force
 
 @external
 def confirmChangeWithdrawalAddress(_newWithdrawalAddress: address, _force: bool):
   assert msg.sender == self.RPLOwner, "auth"
   assert _newWithdrawalAddress == self.pendingWithdrawalAddress, "pendingWithdrawalAddress"
+  assert _force == self.pendingForce, "pendingForce"
   rocketStorage.setWithdrawalAddress(self.nodeAddress, _newWithdrawalAddress, _force)

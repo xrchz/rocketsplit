@@ -50,21 +50,32 @@ def __init__(_rocketStorageAddress: address):
   self.guardian = msg.sender
 
 @external
+@payable
+def __default__():
+  pass
+
+event DeployRocketSplit:
+  self: indexed(address)
+  node: indexed(address)
+  ETHOwner: address
+  RPLOwner: address
+  ETHFee: Fee
+  RPLFee: Fee
+
+@external
 def deploy(_nodeAddress: address,
            _ETHOwner: address, _RPLOwner: address,
            _ETHFee: Fee, _RPLFee: Fee) -> address:
   assert self.guardian != empty(address), "proxy"
   contract: RocketSplitInterface = RocketSplitInterface(create_minimal_proxy_to(self))
   contract.setup(_nodeAddress, _ETHOwner, _RPLOwner, _ETHFee, _RPLFee)
+  log DeployRocketSplit(contract.address, _nodeAddress, _ETHOwner, _RPLOwner, _ETHFee, _RPLFee)
   return contract.address
 
 @external
-@payable
-def __default__():
-  pass
-
-@external
-def setup(_nodeAddress: address, _ETHOwner: address, _RPLOwner: address, _ETHFee: Fee, _RPLFee: Fee):
+def setup(_nodeAddress: address,
+          _ETHOwner: address, _RPLOwner: address,
+          _ETHFee: Fee, _RPLFee: Fee):
   assert self.guardian == empty(address), "auth"
   self.guardian = msg.sender
   self.nodeAddress = _nodeAddress

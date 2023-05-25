@@ -10,4 +10,6 @@ def main():
     with open("ui/.env", "w") as f:
         f.write(f'RPC={networks.active_provider.web3.provider.endpoint_uri}\n')
         f.write(f'ADDRESS={factory.address}\n')
+    with open("ui/RocketSplitAddress.json", "w") as f:
+        f.write(f'"{factory.address}"\n')
     IPython.embed()

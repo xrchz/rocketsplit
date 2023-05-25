@@ -1,1 +1,37 @@
+label.address > input {
+  width: 30em;
+  margin-left: 2em;
+}
+label.address > span {
+  display: block;
+  width: 10em;
+}
+label > input, label > span, label + span {
+  font-family: monospace;
+}
 
+div.inputs {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 40em;
+  margin: auto;
+}
+
+div.inputs > div {
+  display: flex;
+}
+
+div.inputs label {
+  margin: auto;
+  font-family: monospace;
+}
+
+div.inputs input[type=button] {
+  width: 100%;
+  margin: auto;
+}
+
+label.fee > input {
+  width: 8em;
+}

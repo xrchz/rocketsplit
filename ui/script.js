@@ -28,6 +28,9 @@ async function signerConnected() {
 
 window.ethereum.on('connect', signerConnected)
 window.ethereum.on('accountsChanged', signerConnected)
+
+await window.ethereum.send('eth_requestAccounts')
+
 await signerConnected()
 
 const addressPattern = '^(?:0x[0-9a-fA-F]{40})|(?:.{3,}\.eth)$'
@@ -50,9 +53,36 @@ function canSubmit() {
     createInputsDiv.querySelectorAll('.address > input')
   ).every(a => a.value && a.checkValidity())
   const fees = Array.from(
-    createInputsDiv.querySelectorAll('.feefraction')
+    createInputsDiv.querySelectorAll('.fraction')
   ).every(s => s.innerText)
   return addresses && fees
+}
+
+function makeOnChangeAddress(addressInput, ensName) {
+  async function onChangeAddress() {
+    addressInput.setCustomValidity('')
+    ensName.innerText = ''
+    if (addressInput.checkValidity()) {
+      if (addressInput.value.endsWith('.eth')) {
+        const resolvedAddress = await provider.resolveName(addressInput.value)
+        if (!resolvedAddress) {
+          addressInput.setCustomValidity(`Could not resolve ENS name ${addressInput.value}`)
+        }
+        else {
+          ensName.innerText = addressInput.value
+          addressInput.value = resolvedAddress
+        }
+      }
+      else if (addressInput.value) {
+        const foundName = await provider.lookupAddress(addressInput.value)
+        if (foundName)
+          ensName.innerText = foundName
+      }
+    }
+    addressInput.reportValidity()
+    button.disabled = !canSubmit()
+  }
+  return onChangeAddress
 }
 
 function addInputs(asset) {
@@ -80,29 +110,7 @@ function addInputs(asset) {
   const feeFraction = div.appendChild(document.createElement('span'))
   feeFraction.innerText = ''
   feeFraction.classList.add('fraction')
-  addressInput.addEventListener('change', async () => {
-    addressInput.setCustomValidity('')
-    ensName.innerText = ''
-    if (addressInput.checkValidity()) {
-      if (addressInput.value.endsWith('.eth')) {
-        const resolvedAddress = await provider.resolveName(addressInput.value)
-        if (!resolvedAddress) {
-          addressInput.setCustomValidity(`Could not resolve ENS name ${addressInput.value}`)
-        }
-        else {
-          ensName.innerText = addressInput.value
-          addressInput.value = resolvedAddress
-        }
-      }
-      else if (addressInput.value) {
-        const foundName = await provider.lookupAddress(addressInput.value)
-        if (foundName)
-          ensName.innerText = foundName
-      }
-    }
-    addressInput.reportValidity()
-    button.disabled = !canSubmit()
-  })
+  addressInput.addEventListener('change', makeOnChangeAddress(addressInput, ensName))
   function updateFees() {
     feeNInput.max = feeDInput.value
     feeFraction.innerText = ''
@@ -121,7 +129,15 @@ function addInputs(asset) {
   feeDInput.addEventListener('change', updateFees)
 }
 
-// TODO: add node address. probably also check it is a registered node.
+const nodeLabel = createInputsDiv.appendChild(document.createElement('label'))
+nodeLabel.innerText = 'Node address'
+nodeLabel.classList.add('address')
+const nodeInput = nodeLabel.appendChild(document.createElement('input'))
+nodeInput.type = 'text'
+nodeInput.pattern = addressPattern
+const nodeEns = nodeLabel.appendChild(document.createElement('span'))
+nodeEns.classList.add('ens')
+nodeInput.addEventListener('change', makeOnChangeAddress(nodeInput, nodeEns))
 addInputs('ETH')
 addInputs('RPL')
 createInputsDiv.appendChild(button)

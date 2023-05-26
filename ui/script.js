@@ -1,6 +1,6 @@
 import { ethers } from "./node_modules/ethers/dist/ethers.js"
 
-const fragment = document.createDocumentFragment()
+const body = document.querySelector('body')
 
 const provider = new ethers.BrowserProvider(window.ethereum)
 const network = await provider.getNetwork()
@@ -38,7 +38,12 @@ async function signerConnected() {
 window.ethereum.on('connect', signerConnected)
 window.ethereum.on('accountsChanged', signerConnected)
 
-await window.ethereum.send('eth_requestAccounts')
+try {
+  await window.ethereum.send('eth_requestAccounts')
+}
+catch (e) {
+  body.appendChild(document.createElement('p')).innerText = e.message
+}
 
 await signerConnected()
 
@@ -64,7 +69,7 @@ function canSubmit() {
   const fees = Array.from(
     createInputsDiv.querySelectorAll('.fraction')
   ).every(s => s.innerText)
-  return addresses && fees
+  return addresses && fees && signer
 }
 
 function makeOnChangeAddress(addressInput, ensName) {
@@ -100,6 +105,7 @@ function addInputs(asset) {
   addressLabel.innerText = `${asset} Owner`
   addressLabel.classList.add('address')
   const addressInput = addressLabel.appendChild(document.createElement('input'))
+  addressInput.id = `${asset}Owner`
   addressInput.type = 'text'
   addressInput.pattern = addressPattern
   const ensName = addressLabel.appendChild(document.createElement('span'))
@@ -108,12 +114,14 @@ function addInputs(asset) {
   feeNLabel.innerText = `${asset} Fee Numerator`
   feeNLabel.classList.add('fee')
   const feeNInput = feeNLabel.appendChild(document.createElement('input'))
+  feeNInput.id = `${asset}FeeN`
   feeNInput.type = 'number'
   feeNInput.min = 0
   const feeDLabel = div.appendChild(document.createElement('label'))
   feeDLabel.innerText = `${asset} Fee Denominator`
   feeDLabel.classList.add('fee')
   const feeDInput = feeDLabel.appendChild(document.createElement('input'))
+  feeDInput.id = `${asset}FeeD`
   feeDInput.type = 'number'
   feeDInput.min = 1
   const feeFraction = div.appendChild(document.createElement('span'))
@@ -160,14 +168,30 @@ nodeInput.addEventListener('change', async () => {
 addInputs('ETH')
 addInputs('RPL')
 createInputsDiv.appendChild(button)
+const resultP = createSection.appendChild(document.createElement('p'))
+const deployFunction = factory.interface.getFunction('deploy').format()
 button.addEventListener('click', async () => {
-  // TODO: await factory.connect(signer).deploy()
+  button.disabled = true
+  resultP.innerText = ''
+  try {
+    const response = await factory.connect(signer)[deployFunction](
+      nodeInput.value,
+      document.getElementById('ETHOwner').value,
+      document.getElementById('RPLOwner').value,
+      [document.getElementById('ETHFeeN').value, document.getElementById('ETHFeeD').value],
+      [document.getElementById('RPLFeeN').value, document.getElementById('RPLFeeD').value]
+    )
+    resultP.innerText = `Transaction ${response.hash} submitted!`
+  }
+  catch (e) {
+    resultP.innerText = e.message
+    button.disabled = !canSubmit()
+  }
 })
 
 const changeSection = document.createElement('section')
 changeSection.appendChild(document.createElement('h2')).innerText = 'View/Use Marriage Contract'
 
-const body = document.querySelector('body')
 body.appendChild(walletSection)
 body.appendChild(createSection)
 body.appendChild(changeSection)

@@ -12,4 +12,6 @@ def main():
         f.write(f'ADDRESS={factory.address}\n')
     with open("ui/RocketSplitAddress.json", "w") as f:
         f.write(f'"{factory.address}"\n')
+    with open("ui/RocketStorageAddress.json", "w") as f:
+        f.write(f'"{rocketStorageAddress}"\n')
     IPython.embed()

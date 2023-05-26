@@ -10,6 +10,15 @@ const factory = new ethers.Contract(await fetch('RocketSplitAddress.json').then(
 console.log(`Factory contract is ${await factory.getAddress()}`)
 let signer
 
+const rocketStorage = new ethers.Contract(
+  await fetch('RocketStorageAddress.json').then(res => res.json()),
+  ['function getAddress(bytes32 key) view returns (address)'],
+  provider)
+const rocketNodeManager = new ethers.Contract(
+  await rocketStorage['getAddress(bytes32)'](ethers.id('contract.addressrocketNodeManager')),
+  ['function getNodeExists(address _nodeAddress) view returns (bool)'],
+  provider)
+
 const walletSection = document.createElement('section')
 const signerLabel = walletSection.appendChild(document.createElement('label'))
 signerLabel.classList.add('address')
@@ -137,7 +146,17 @@ nodeInput.type = 'text'
 nodeInput.pattern = addressPattern
 const nodeEns = nodeLabel.appendChild(document.createElement('span'))
 nodeEns.classList.add('ens')
-nodeInput.addEventListener('change', makeOnChangeAddress(nodeInput, nodeEns))
+const onChangeNode = makeOnChangeAddress(nodeInput, nodeEns)
+nodeInput.addEventListener('change', async () => {
+  await onChangeNode()
+  if (nodeInput.checkValidity() && nodeInput.value) {
+    if (!(await rocketNodeManager.getNodeExists(nodeInput.value))) {
+      nodeInput.setCustomValidity('Node address not registered with Rocket Pool')
+      nodeInput.reportValidity()
+      button.disabled = true
+    }
+  }
+})
 addInputs('ETH')
 addInputs('RPL')
 createInputsDiv.appendChild(button)

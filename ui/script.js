@@ -78,7 +78,7 @@ function makeOnChangeAddress(addressInput, ensName) {
     ensName.innerText = ''
     if (addressInput.checkValidity()) {
       if (addressInput.value.endsWith('.eth')) {
-        const resolvedAddress = await provider.resolveName(addressInput.value)
+        const resolvedAddress = await provider.resolveName(addressInput.value).catch(error => null)
         if (!resolvedAddress) {
           addressInput.setCustomValidity(`Could not resolve ENS name ${addressInput.value}`)
         }
@@ -179,9 +179,11 @@ button.addEventListener('click', async () => {
       document.getElementById('ETHOwner').value,
       document.getElementById('RPLOwner').value,
       [document.getElementById('ETHFeeN').value, document.getElementById('ETHFeeD').value],
-      [document.getElementById('RPLFeeN').value, document.getElementById('RPLFeeD').value]
-    )
+      [document.getElementById('RPLFeeN').value, document.getElementById('RPLFeeD').value])
     resultP.innerText = `Transaction ${response.hash} submitted!`
+    const receipt = await response.wait()
+    const result = await receipt.getResult()
+    resultP.innerText = `Transaction ${receipt.hash} included in block ${receipt.blockNumber}! Contract deployed at ${result}.`
   }
   catch (e) {
     resultP.innerText = e.message

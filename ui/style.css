@@ -10,6 +10,19 @@ label > input, label > span, label + span {
   font-family: monospace;
 }
 
+input[type=text]:read-only {
+  background: lightgrey;
+  border-style: solid;
+}
+
+span.ens {
+  color: darkorange;
+}
+
+input:invalid {
+  border: dashed 1px red;
+}
+
 div.inputs {
   display: flex;
   flex-direction: column;

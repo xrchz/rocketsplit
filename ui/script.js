@@ -20,19 +20,31 @@ const rocketNodeManager = new ethers.Contract(
   provider)
 
 const walletSection = document.createElement('section')
-const signerLabel = walletSection.appendChild(document.createElement('label'))
+const nodeDiv = walletSection.appendChild(document.createElement('div'))
+nodeDiv.classList.add('inputs')
+
+const signerLabel = nodeDiv.appendChild(document.createElement('label'))
 signerLabel.classList.add('address')
-signerLabel.innerText = 'Connected account: '
+signerLabel.innerText = 'Connected account'
 const signerInput = signerLabel.appendChild(document.createElement('input'))
 signerInput.type = 'text'
 signerInput.setAttribute('readonly', true)
 signerInput.placeholder = 'none'
+const signerEns = signerLabel.appendChild(document.createElement('span'))
+signerEns.classList.add('ens')
 
 async function signerConnected() {
   signerInput.value = ''
+  signerEns.innerText = ''
   signer = await provider.getSigner()
-  if (signer)
+  if (signer) {
     signerInput.value = await signer.getAddress()
+    if (signerInput.value) {
+      const foundName = await provider.lookupAddress(signerInput.value)
+      if (foundName)
+        signerEns.innerText = foundName
+    }
+  }
 }
 
 window.ethereum.on('connect', signerConnected)
@@ -146,7 +158,7 @@ function addInputs(asset) {
   feeDInput.addEventListener('change', updateFees)
 }
 
-const nodeLabel = createInputsDiv.appendChild(document.createElement('label'))
+const nodeLabel = nodeDiv.appendChild(document.createElement('label'))
 nodeLabel.innerText = 'Node address'
 nodeLabel.classList.add('address')
 const nodeInput = nodeLabel.appendChild(document.createElement('input'))
@@ -182,8 +194,7 @@ button.addEventListener('click', async () => {
       [document.getElementById('RPLFeeN').value, document.getElementById('RPLFeeD').value])
     resultP.innerText = `Transaction ${response.hash} submitted!`
     const receipt = await response.wait()
-    const result = await receipt.getResult()
-    resultP.innerText = `Transaction ${receipt.hash} included in block ${receipt.blockNumber}! Contract deployed at ${result}.`
+    resultP.innerText = `Transaction ${receipt.hash} included in block ${receipt.blockNumber}!`
   }
   catch (e) {
     resultP.innerText = e.message

@@ -8,7 +8,9 @@ console.log(`Connected to ${network.name}`)
 const abi = await fetch('RocketSplit.json').then(res => res.json()).then(j => j.abi)
 const factory = new ethers.Contract(await fetch('RocketSplitAddress.json').then(res => res.json()), abi, provider)
 console.log(`Factory contract is ${await factory.getAddress()}`)
+const deployFilter = factory.filters.DeployRocketSplit
 let signer
+
 
 const rocketStorage = new ethers.Contract(
   await fetch('RocketStorageAddress.json').then(res => res.json()),
@@ -16,7 +18,9 @@ const rocketStorage = new ethers.Contract(
   provider)
 const rocketNodeManager = new ethers.Contract(
   await rocketStorage['getAddress(bytes32)'](ethers.id('contract.addressrocketNodeManager')),
-  ['function getNodeExists(address _nodeAddress) view returns (bool)'],
+  ['function getNodeExists(address _nodeAddress) view returns (bool)',
+   'function getNodeWithdrawalAddress(address _nodeAddress) view returns (address)',
+   'function getNodePendingWithdrawalAddress(address _nodeAddress) view returns (address)'],
   provider)
 
 const walletSection = document.createElement('section')
@@ -167,16 +171,6 @@ nodeInput.pattern = addressPattern
 const nodeEns = nodeLabel.appendChild(document.createElement('span'))
 nodeEns.classList.add('ens')
 const onChangeNode = makeOnChangeAddress(nodeInput, nodeEns)
-nodeInput.addEventListener('change', async () => {
-  await onChangeNode()
-  if (nodeInput.checkValidity() && nodeInput.value) {
-    if (!(await rocketNodeManager.getNodeExists(nodeInput.value))) {
-      nodeInput.setCustomValidity('Node address not registered with Rocket Pool')
-      nodeInput.reportValidity()
-      button.disabled = true
-    }
-  }
-})
 addInputs('ETH')
 addInputs('RPL')
 createInputsDiv.appendChild(button)
@@ -204,6 +198,73 @@ button.addEventListener('click', async () => {
 
 const changeSection = document.createElement('section')
 changeSection.appendChild(document.createElement('h2')).innerText = 'View/Use Marriage Contract'
+const changeInputsDiv = changeSection.appendChild(document.createElement('div'))
+
+function addWithdrawalDisplay(label) {
+  const withdrawalLabel = changeInputsDiv.appendChild(document.createElement('label'))
+  withdrawalLabel.classList.add('address')
+  withdrawalLabel.innerText = label
+  const withdrawalInput = withdrawalLabel.appendChild(document.createElement('input'))
+  withdrawalInput.type = 'text'
+  withdrawalInput.setAttribute('readonly', true)
+  withdrawalInput.placeholder = 'none'
+  const withdrawalEns = withdrawalLabel.appendChild(document.createElement('span'))
+  withdrawalEns.classList.add('ens')
+  const withdrawalRocketSplit = withdrawalLabel.appendChild(document.createElement('span'))
+  async function withdrawalChanged(withdrawalAddress) {
+    withdrawalInput.value = withdrawalAddress
+    withdrawalEns.innerText = ''
+    withdrawalRocketSplit.classList.remove('rocketSplit')
+    withdrawalRocketSplit.classList.remove('notRocketSplit')
+    if (withdrawalAddress) {
+      const foundName = await provider.lookupAddress(withdrawalAddress)
+      if (foundName)
+        withdrawalEns.innerText = foundName
+      const filter = deployFilter(withdrawalAddress, nodeInput.value)
+      const logs = await factory.queryFilter(filter)
+      if (logs.length) {
+        const log = logs.pop()
+        console.log(JSON.stringify(log))
+        withdrawalRocketSplit.classList.add('rocketSplit')
+      }
+      else {
+        withdrawalRocketSplit.classList.add('notRocketSplit')
+      }
+    }
+  }
+  return [withdrawalLabel, withdrawalChanged, withdrawalInput, withdrawalEns, withdrawalRocketSplit]
+}
+
+const [withdrawalLabel, withdrawalChanged] = addWithdrawalDisplay('Withdrawal address')
+const [pendingLabel, pendingChanged] = addWithdrawalDisplay('Pending withdrawal address')
+pendingLabel.classList.add('hidden')
+
+// TODO: also add the last "Deployed but not set yet" RocketSplit address
+
+nodeInput.addEventListener('change', async () => {
+  await onChangeNode()
+  await withdrawalChanged('')
+  await pendingChanged('')
+  pendingLabel.classList.add('hidden')
+  if (nodeInput.checkValidity() && nodeInput.value) {
+    if (!(await rocketNodeManager.getNodeExists(nodeInput.value))) {
+      nodeInput.setCustomValidity('Node address not registered with Rocket Pool')
+      nodeInput.reportValidity()
+      button.disabled = true
+    }
+    else {
+      const pending = await rocketNodeManager.getNodePendingWithdrawalAddress(nodeInput.value)
+      if (pending) {
+        await pendingChanged(pending)
+        pendingLabel.classList.remove('hidden')
+      }
+      const withdrawal = await rocketNodeManager.getNodeWithdrawalAddress(nodeInput.value)
+      if (withdrawal) {
+        await withdrawalChanged(withdrawal)
+      }
+    }
+  }
+})
 
 body.appendChild(walletSection)
 body.appendChild(createSection)

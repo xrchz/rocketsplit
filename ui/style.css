@@ -48,3 +48,14 @@ div.inputs input[type=button] {
 label.fee > input {
   width: 8em;
 }
+
+span.rocketSplit::after {
+  content: '(RocketSplit)';
+}
+span.notRocketSplit::after {
+  content: '(Not RocketSplit)';
+}
+
+.hidden {
+  display: none;
+}

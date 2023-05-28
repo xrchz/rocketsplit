@@ -52,10 +52,16 @@ label.fee > input {
 span.rocketSplit::after {
   content: '(RocketSplit)';
 }
+span.rocketSplit {
+  color: darkgreen;
+}
 span.notRocketSplit::after {
   content: '(Not RocketSplit)';
 }
+span.notRocketSplit {
+  color: darkred;
+}
 
-.hidden {
+.hidden, div.hidden {
   display: none;
 }

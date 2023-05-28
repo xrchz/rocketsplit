@@ -9,10 +9,7 @@ console.log(`Connected to ${network.name}`)
 const abi = await fetch('RocketSplit.json').then(res => res.json()).then(j => j.abi)
 const factory = new ethers.Contract(await fetch('RocketSplitAddress.json').then(res => res.json()), abi, provider)
 console.log(`Factory contract is ${await factory.getAddress()}`)
-const deployFragment = factory.getEvent('DeployRocketSplit').fragment
-const deployFilter = factory.filters.DeployRocketSplit
 let signer
-
 
 const rocketStorage = new ethers.Contract(
   await fetch('RocketStorageAddress.json').then(res => res.json()),
@@ -80,14 +77,14 @@ button.type = 'button'
 button.value = 'Deploy Contract'
 button.disabled = true
 
-function canSubmit() {
+function updateButton() {
   const addresses = Array.from(
     createInputsDiv.querySelectorAll('.address > input')
   ).every(a => a.value && a.checkValidity())
   const fees = Array.from(
     createInputsDiv.querySelectorAll('.fraction')
   ).every(s => s.innerText)
-  return addresses && fees && signer
+  button.disabled = !(addresses && fees && signer)
 }
 
 function makeOnChangeAddress(addressInput, ensName) {
@@ -96,7 +93,7 @@ function makeOnChangeAddress(addressInput, ensName) {
     ensName.innerText = ''
     if (addressInput.checkValidity()) {
       if (addressInput.value.endsWith('.eth')) {
-        const resolvedAddress = await provider.resolveName(addressInput.value).catch(error => null)
+        const resolvedAddress = await provider.resolveName(addressInput.value).catch(() => null)
         if (!resolvedAddress) {
           addressInput.setCustomValidity(`Could not resolve ENS name ${addressInput.value}`)
         }
@@ -112,7 +109,7 @@ function makeOnChangeAddress(addressInput, ensName) {
       }
     }
     addressInput.reportValidity()
-    button.disabled = !canSubmit()
+    updateButton()
   }
   return onChangeAddress
 }
@@ -158,7 +155,7 @@ function addInputs(asset) {
     }
     feeDInput.reportValidity()
     feeNInput.reportValidity()
-    button.disabled = !canSubmit()
+    updateButton()
   }
   feeNInput.addEventListener('change', updateFees)
   feeDInput.addEventListener('change', updateFees)
@@ -172,39 +169,20 @@ nodeInput.type = 'text'
 nodeInput.pattern = addressPattern
 const nodeEns = nodeLabel.appendChild(document.createElement('span'))
 nodeEns.classList.add('ens')
-const onChangeNode = makeOnChangeAddress(nodeInput, nodeEns)
+const onChangeNodeEns = makeOnChangeAddress(nodeInput, nodeEns)
 addInputs('ETH')
 addInputs('RPL')
 createInputsDiv.appendChild(button)
 const resultP = createSection.appendChild(document.createElement('p'))
 const deployFunction = factory.interface.getFunction('deploy').format()
-button.addEventListener('click', async () => {
-  button.disabled = true
-  resultP.innerText = ''
-  try {
-    const response = await factory.connect(signer)[deployFunction](
-      nodeInput.value,
-      document.getElementById('ETHOwner').value,
-      document.getElementById('RPLOwner').value,
-      [document.getElementById('ETHFeeN').value, document.getElementById('ETHFeeD').value],
-      [document.getElementById('RPLFeeN').value, document.getElementById('RPLFeeD').value])
-    resultP.innerText = `Transaction ${response.hash} submitted!`
-    const receipt = await response.wait()
-    resultP.innerText = `Transaction ${receipt.hash} included in block ${receipt.blockNumber}!`
-  }
-  catch (e) {
-    resultP.innerText = e.message
-    button.disabled = !canSubmit()
-  }
-})
 
 const changeSection = document.createElement('section')
 changeSection.appendChild(document.createElement('h2')).innerText = 'View/Use Marriage Contract'
 const changeInputsDiv = changeSection.appendChild(document.createElement('div'))
 changeInputsDiv.classList.add('inputs')
 
-function addWithdrawalDisplay(label) {
-  const withdrawalLabel = changeInputsDiv.appendChild(document.createElement('label'))
+function addWithdrawalDisplay(div, label) {
+  const withdrawalLabel = div.appendChild(document.createElement('label'))
   withdrawalLabel.classList.add('address')
   withdrawalLabel.innerText = label
   const withdrawalInput = withdrawalLabel.appendChild(document.createElement('input'))
@@ -223,7 +201,7 @@ function addWithdrawalDisplay(label) {
       const foundName = await provider.lookupAddress(withdrawalAddress)
       if (foundName)
         withdrawalEns.innerText = foundName
-      const filter = deployFilter(withdrawalAddress, nodeInput.value)
+      const filter = factory.filters.DeployRocketSplit(withdrawalAddress, nodeInput.value)
       const logs = await factory.queryFilter(filter)
       if (logs.length) {
         const log = logs.pop()
@@ -237,21 +215,29 @@ function addWithdrawalDisplay(label) {
   return [withdrawalLabel, withdrawalChanged, withdrawalInput, withdrawalEns, withdrawalRocketSplit]
 }
 
-const [withdrawalLabel, withdrawalChanged] = addWithdrawalDisplay('Withdrawal address')
-const [deployedSplitLabel, deployedSplitChanged] = addWithdrawalDisplay('Deployed RocketSplit address')
-const [pendingLabel, pendingChanged] = addWithdrawalDisplay('Pending withdrawal address')
-deployedSplitLabel.classList.add('hidden')
+const [withdrawalLabel, withdrawalChanged] = addWithdrawalDisplay(changeInputsDiv, 'Withdrawal address')
+const [pendingLabel, pendingChanged] = addWithdrawalDisplay(changeInputsDiv, 'Pending withdrawal address')
 pendingLabel.classList.add('hidden')
+const deployedDiv = changeSection.appendChild(document.createElement('div'))
+const [deployedSplitLabel, deployedSplitChanged] = addWithdrawalDisplay(deployedDiv, 'Deployed RocketSplit address')
+deployedDiv.classList.add('inputs')
+deployedDiv.classList.add('hidden')
 
-nodeInput.addEventListener('change', async () => {
-  await onChangeNode()
+const setDeployed = deployedDiv.appendChild(document.createElement('input'))
+setDeployed.type = 'button'
+setDeployed.value = 'Set as Withdrawal Address'
+setDeployed.disabled = true
+
+async function onChangeNodeWithdrawal() {
   await withdrawalChanged('')
   await deployedSplitChanged('')
   await pendingChanged('')
-  deployedSplitLabel.classList.add('hidden')
+  deployedDiv.classList.add('hidden')
   pendingLabel.classList.add('hidden')
+  setDeployed.disabled = true
+  delete setDeployed.title
   if (nodeInput.checkValidity() && nodeInput.value) {
-    if (!(await rocketNodeManager.getNodeExists(nodeInput.value))) {
+    if (!(await rocketNodeManager.getNodeExists(nodeInput.value).catch(() => false))) {
       nodeInput.setCustomValidity('Node address not registered with Rocket Pool')
       nodeInput.reportValidity()
       button.disabled = true
@@ -266,19 +252,50 @@ nodeInput.addEventListener('change', async () => {
       if (withdrawal) {
         await withdrawalChanged(withdrawal)
       }
-      const filter = deployFilter(null, nodeInput.value)
+      const filter = factory.filters.DeployRocketSplit(null, nodeInput.value)
       const logs = await factory.queryFilter(filter)
       if (logs.length) {
         const log = logs.pop()
-        const eventLog = new ethers.EventLog(log, factory.interface, deployFragment)
+        const eventLog = new ethers.EventLog(log, factory.interface, filter.fragment)
         const split = eventLog.args[0]
         if (split !== pending && split !== withdrawal) {
           await deployedSplitChanged(split)
-          deployedSplitLabel.classList.remove('hidden')
+          deployedDiv.classList.remove('hidden')
+          if (signerInput.value === withdrawal)
+            setDeployed.disabled = false
+          else
+            setDeployed.title = 'Connect with current withdrawal address'
         }
       }
     }
   }
+}
+
+nodeInput.addEventListener('change', async () => {
+  await onChangeNodeEns()
+  await onChangeNodeWithdrawal()
+})
+
+button.addEventListener('click', async () => {
+  button.disabled = true
+  resultP.innerText = ''
+  try {
+    const response = await factory.connect(signer)[deployFunction](
+      nodeInput.value,
+      document.getElementById('ETHOwner').value,
+      document.getElementById('RPLOwner').value,
+      [document.getElementById('ETHFeeN').value, document.getElementById('ETHFeeD').value],
+      [document.getElementById('RPLFeeN').value, document.getElementById('RPLFeeD').value])
+    resultP.innerText = `Transaction ${response.hash} submitted!`
+    const receipt = await response.wait()
+    resultP.innerText = `Transaction ${receipt.hash} included in block ${receipt.blockNumber}!`
+    await onChangeNodeWithdrawal()
+    resultP.innerText = ''
+  }
+  catch (e) {
+    resultP.innerText = e.message
+  }
+  updateButton()
 })
 
 body.appendChild(walletSection)

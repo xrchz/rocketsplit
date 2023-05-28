@@ -2,9 +2,8 @@ label.address > input {
   width: 30em;
   margin-left: 2em;
 }
-label.address > span {
+label.address > span.ens {
   display: block;
-  width: 10em;
 }
 label > input, label > span, label + span {
   font-family: monospace;
@@ -17,6 +16,7 @@ input[type=text]:read-only {
 
 span.ens {
   color: darkorange;
+  width: 10em;
 }
 
 input:invalid {

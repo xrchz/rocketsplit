@@ -2,12 +2,14 @@ import { ethers } from "./node_modules/ethers/dist/ethers.js"
 
 const body = document.querySelector('body')
 
+const emptyAddress = `0x${'0'.repeat(40)}`
 const provider = new ethers.BrowserProvider(window.ethereum)
 const network = await provider.getNetwork()
 console.log(`Connected to ${network.name}`)
 const abi = await fetch('RocketSplit.json').then(res => res.json()).then(j => j.abi)
 const factory = new ethers.Contract(await fetch('RocketSplitAddress.json').then(res => res.json()), abi, provider)
 console.log(`Factory contract is ${await factory.getAddress()}`)
+const deployFragment = factory.getEvent('DeployRocketSplit').fragment
 const deployFilter = factory.filters.DeployRocketSplit
 let signer
 
@@ -199,6 +201,7 @@ button.addEventListener('click', async () => {
 const changeSection = document.createElement('section')
 changeSection.appendChild(document.createElement('h2')).innerText = 'View/Use Marriage Contract'
 const changeInputsDiv = changeSection.appendChild(document.createElement('div'))
+changeInputsDiv.classList.add('inputs')
 
 function addWithdrawalDisplay(label) {
   const withdrawalLabel = changeInputsDiv.appendChild(document.createElement('label'))
@@ -224,7 +227,6 @@ function addWithdrawalDisplay(label) {
       const logs = await factory.queryFilter(filter)
       if (logs.length) {
         const log = logs.pop()
-        console.log(JSON.stringify(log))
         withdrawalRocketSplit.classList.add('rocketSplit')
       }
       else {
@@ -236,15 +238,17 @@ function addWithdrawalDisplay(label) {
 }
 
 const [withdrawalLabel, withdrawalChanged] = addWithdrawalDisplay('Withdrawal address')
+const [deployedSplitLabel, deployedSplitChanged] = addWithdrawalDisplay('Deployed RocketSplit address')
 const [pendingLabel, pendingChanged] = addWithdrawalDisplay('Pending withdrawal address')
+deployedSplitLabel.classList.add('hidden')
 pendingLabel.classList.add('hidden')
-
-// TODO: also add the last "Deployed but not set yet" RocketSplit address
 
 nodeInput.addEventListener('change', async () => {
   await onChangeNode()
   await withdrawalChanged('')
+  await deployedSplitChanged('')
   await pendingChanged('')
+  deployedSplitLabel.classList.add('hidden')
   pendingLabel.classList.add('hidden')
   if (nodeInput.checkValidity() && nodeInput.value) {
     if (!(await rocketNodeManager.getNodeExists(nodeInput.value))) {
@@ -254,13 +258,24 @@ nodeInput.addEventListener('change', async () => {
     }
     else {
       const pending = await rocketNodeManager.getNodePendingWithdrawalAddress(nodeInput.value)
-      if (pending) {
+      if (pending && pending !== emptyAddress) {
         await pendingChanged(pending)
         pendingLabel.classList.remove('hidden')
       }
       const withdrawal = await rocketNodeManager.getNodeWithdrawalAddress(nodeInput.value)
       if (withdrawal) {
         await withdrawalChanged(withdrawal)
+      }
+      const filter = deployFilter(null, nodeInput.value)
+      const logs = await factory.queryFilter(filter)
+      if (logs.length) {
+        const log = logs.pop()
+        const eventLog = new ethers.EventLog(log, factory.interface, deployFragment)
+        const split = eventLog.args[0]
+        if (split !== pending && split !== withdrawal) {
+          await deployedSplitChanged(split)
+          deployedSplitLabel.classList.remove('hidden')
+        }
       }
     }
   }

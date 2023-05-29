@@ -49,14 +49,14 @@ label.fee > input {
   width: 8em;
 }
 
-span.rocketSplit::after {
-  content: '(RocketSplit)';
+span.rocketSplit::before {
+  content: 'RocketSplit';
 }
 span.rocketSplit {
   color: darkgreen;
 }
-span.notRocketSplit::after {
-  content: '(Not RocketSplit)';
+span.notRocketSplit::before {
+  content: 'Not RocketSplit';
 }
 span.notRocketSplit {
   color: darkred;

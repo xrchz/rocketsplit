@@ -130,6 +130,8 @@ function makeOnChangeAddress(addressInput, ensName) {
 
 const onChangeNodeEns = makeOnChangeAddress(nodeInput, nodeEns)
 
+const feeEstimateText = (num, den) => `${num}/${den} ≈ ${(100*num/den).toPrecision(3)}%`
+
 function addInputs(asset) {
   const div = createInputsDiv.appendChild(document.createElement('div'))
   const addressLabel = div.appendChild(document.createElement('label'))
@@ -167,7 +169,7 @@ function addInputs(asset) {
       if (!feeDInput.value) feeDInput.value = feeNInput.value || 1
       const num = feeNInput.valueAsNumber
       const den = feeDInput.valueAsNumber
-      feeFraction.innerText = `${num}/${den} ≈ ${(100*num/den).toPrecision(3)}%`
+      feeFraction.innerText = feeEstimateText(num, den)
     }
     feeDInput.reportValidity()
     feeNInput.reportValidity()
@@ -186,6 +188,18 @@ changeSection.appendChild(document.createElement('h2')).innerText = 'View/Use Ma
 const changeInputsDiv = changeSection.appendChild(document.createElement('div'))
 changeInputsDiv.classList.add('inputs')
 
+async function contractDetails(args) {
+  const [, , ETHOwner, RPLOwner, [ETHFeeN, ETHFeeD], [RPLFeeN, RPLFeeD]] = args
+  async function formatAddress(a) {
+    const ens = await provider.lookupAddress(a)
+    return ens ? `${a} (${ens})` : a
+  }
+  return ['',
+          `ETH: ${await formatAddress(ETHOwner)} ${feeEstimateText(Number(ETHFeeN), Number(ETHFeeD))}`,
+          `RPL: ${await formatAddress(RPLOwner)} ${feeEstimateText(Number(RPLFeeN), Number(RPLFeeD))}`]
+         .join(' | ')
+}
+
 function addWithdrawalDisplay(div, label) {
   const withdrawalLabel = div.appendChild(document.createElement('label'))
   withdrawalLabel.classList.add('address')
@@ -202,6 +216,7 @@ function addWithdrawalDisplay(div, label) {
     withdrawalEns.innerText = ''
     withdrawalRocketSplit.classList.remove('rocketSplit')
     withdrawalRocketSplit.classList.remove('notRocketSplit')
+    withdrawalRocketSplit.innerText = ''
     if (withdrawalAddress) {
       const foundName = await provider.lookupAddress(withdrawalAddress)
       if (foundName)
@@ -211,7 +226,8 @@ function addWithdrawalDisplay(div, label) {
       if (logs.length) {
         const log = logs.pop()
         withdrawalRocketSplit.classList.add('rocketSplit')
-        // TODO: show details of the rocket split contract
+        const eventLog = new ethers.EventLog(log, factory.interface, filter.fragment)
+        withdrawalRocketSplit.innerText = await contractDetails(eventLog.args)
       }
       else {
         withdrawalRocketSplit.classList.add('notRocketSplit')

@@ -211,6 +211,7 @@ function addWithdrawalDisplay(div, label) {
       if (logs.length) {
         const log = logs.pop()
         withdrawalRocketSplit.classList.add('rocketSplit')
+        // TODO: show details of the rocket split contract
       }
       else {
         withdrawalRocketSplit.classList.add('notRocketSplit')
@@ -224,7 +225,7 @@ const [withdrawalLabel, withdrawalChanged] = addWithdrawalDisplay(changeInputsDi
 const [pendingLabel, pendingChanged] = addWithdrawalDisplay(changeInputsDiv, 'Pending withdrawal address')
 pendingLabel.classList.add('hidden')
 const deployedDiv = changeSection.appendChild(document.createElement('div'))
-const [deployedSplitLabel, deployedSplitChanged] = addWithdrawalDisplay(deployedDiv, 'Deployed RocketSplit address')
+const [deployedSplitLabel, deployedSplitChanged, deployedSplitInput] = addWithdrawalDisplay(deployedDiv, 'Deployed RocketSplit address')
 deployedDiv.classList.add('inputs')
 deployedDiv.classList.add('hidden')
 
@@ -252,6 +253,7 @@ async function onChangeNodeWithdrawal() {
       if (pending && pending !== emptyAddress) {
         await pendingChanged(pending)
         pendingLabel.classList.remove('hidden')
+        // TODO: show option to confirm withdrawal address (if it is rocketSplit)
       }
       const withdrawal = await rocketNodeManager.getNodeWithdrawalAddress(nodeInput.value)
       if (withdrawal) {
@@ -312,7 +314,7 @@ setDeployed.addEventListener('click', async () => {
   transactionStatus.innerText = ''
   try {
     const response = await rocketStorage.connect(signer).setWithdrawalAddress(
-      nodeInput.value, signerInput.value, false)
+      nodeInput.value, deployedSplitInput.value, false)
     await handleTransaction(response)
   }
   catch (e) {

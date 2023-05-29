@@ -9,8 +9,8 @@ const provider = new ethers.BrowserProvider(window.ethereum)
 const network = await provider.getNetwork()
 console.log(`Connected to ${network.name}`)
 
-const abi = await fetch('RocketSplit.json').then(res => res.json()).then(j => j.abi)
-const factory = new ethers.Contract(await fetch('RocketSplitAddress.json').then(res => res.json()), abi, provider)
+const rocketSplitABI = await fetch('RocketSplit.json').then(res => res.json()).then(j => j.abi)
+const factory = new ethers.Contract(await fetch('RocketSplitAddress.json').then(res => res.json()), rocketSplitABI, provider)
 console.log(`Factory contract is ${await factory.getAddress()}`)
 const deployFunction = factory.interface.getFunction('deploy').format()
 
@@ -234,14 +234,24 @@ function addWithdrawalDisplay(div, label) {
       }
     }
   }
-  return [withdrawalLabel, withdrawalChanged, withdrawalInput, withdrawalEns, withdrawalRocketSplit]
+  return [withdrawalChanged, withdrawalInput, withdrawalEns, withdrawalRocketSplit, withdrawalLabel]
 }
 
-const [withdrawalLabel, withdrawalChanged] = addWithdrawalDisplay(changeInputsDiv, 'Withdrawal address')
-const [pendingLabel, pendingChanged] = addWithdrawalDisplay(changeInputsDiv, 'Pending withdrawal address')
-pendingLabel.classList.add('hidden')
+const [withdrawalChanged] = addWithdrawalDisplay(changeInputsDiv, 'Withdrawal address')
+
+const pendingDiv = changeSection.appendChild(document.createElement('div'))
+const [pendingChanged, pendingInput] = addWithdrawalDisplay(pendingDiv, 'Pending withdrawal address')
+pendingDiv.classList.add('inputs')
+pendingDiv.classList.add('hidden')
+
+const confirmPending = pendingDiv.appendChild(document.createElement('input'))
+confirmPending.type = 'button'
+confirmPending.value = 'Confirm Withdrawal Address'
+confirmPending.disabled = true
+confirmPending.classList.add('hidden')
+
 const deployedDiv = changeSection.appendChild(document.createElement('div'))
-const [deployedSplitLabel, deployedSplitChanged, deployedSplitInput] = addWithdrawalDisplay(deployedDiv, 'Deployed RocketSplit address')
+const [deployedSplitChanged, deployedSplitInput] = addWithdrawalDisplay(deployedDiv, 'Deployed RocketSplit address')
 deployedDiv.classList.add('inputs')
 deployedDiv.classList.add('hidden')
 
@@ -255,8 +265,10 @@ async function onChangeNodeWithdrawal() {
   await deployedSplitChanged('')
   await pendingChanged('')
   deployedDiv.classList.add('hidden')
-  pendingLabel.classList.add('hidden')
+  pendingDiv.classList.add('hidden')
   setDeployed.disabled = true
+  confirmPending.disabled = true
+  confirmPending.classList.add('hidden')
   delete setDeployed.title
   if (nodeInput.checkValidity() && nodeInput.value) {
     if (!(await rocketNodeManager.getNodeExists(nodeInput.value).catch(() => false))) {
@@ -268,8 +280,7 @@ async function onChangeNodeWithdrawal() {
       const pending = await rocketNodeManager.getNodePendingWithdrawalAddress(nodeInput.value)
       if (pending && pending !== emptyAddress) {
         await pendingChanged(pending)
-        pendingLabel.classList.remove('hidden')
-        // TODO: show option to confirm withdrawal address (if it is rocketSplit)
+        pendingDiv.classList.remove('hidden')
       }
       const withdrawal = await rocketNodeManager.getNodeWithdrawalAddress(nodeInput.value)
       if (withdrawal) {
@@ -281,7 +292,11 @@ async function onChangeNodeWithdrawal() {
         const log = logs.pop()
         const eventLog = new ethers.EventLog(log, factory.interface, filter.fragment)
         const split = eventLog.args[0]
-        if (split !== pending && split !== withdrawal) {
+        if (split === pending) {
+          confirmPending.disabled = false
+          confirmPending.classList.remove('hidden')
+        }
+        else if (split !== pending && split !== withdrawal) {
           await deployedSplitChanged(split)
           deployedDiv.classList.remove('hidden')
           if (signerInput.value === withdrawal)
@@ -339,6 +354,20 @@ setDeployed.addEventListener('click', async () => {
   }
 })
 
+confirmPending.addEventListener('click', async () => {
+  confirmPending.disabled = true
+  transactionStatus.innerText = ''
+  try {
+    const rocketSplit = new ethers.Contract(pendingInput.value, rocketSplitABI, provider)
+    const response = await rocketSplit.connect(signer).confirmWithdrawalAddress()
+    await handleTransaction(response)
+  }
+  catch (e) {
+    transactionStatus.innerText = e.message
+    await onChangeNodeWithdrawal()
+  }
+})
+
 body.appendChild(walletSection)
-body.appendChild(createSection)
 body.appendChild(changeSection)
+body.appendChild(createSection)

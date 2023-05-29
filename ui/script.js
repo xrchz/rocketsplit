@@ -3,17 +3,23 @@ import { ethers } from "./node_modules/ethers/dist/ethers.js"
 const body = document.querySelector('body')
 
 const emptyAddress = `0x${'0'.repeat(40)}`
+const addressPattern = '^(?:0x[0-9a-fA-F]{40})|(?:.{3,}\.eth)$'
+
 const provider = new ethers.BrowserProvider(window.ethereum)
 const network = await provider.getNetwork()
 console.log(`Connected to ${network.name}`)
+
 const abi = await fetch('RocketSplit.json').then(res => res.json()).then(j => j.abi)
 const factory = new ethers.Contract(await fetch('RocketSplitAddress.json').then(res => res.json()), abi, provider)
 console.log(`Factory contract is ${await factory.getAddress()}`)
+const deployFunction = factory.interface.getFunction('deploy').format()
+
 let signer
 
 const rocketStorage = new ethers.Contract(
   await fetch('RocketStorageAddress.json').then(res => res.json()),
-  ['function getAddress(bytes32 key) view returns (address)'],
+  ['function getAddress(bytes32 key) view returns (address)',
+   'function setWithdrawalAddress(address _nodeAddress, address _newWithdrawalAddress, bool _confirm)'],
   provider)
 const rocketNodeManager = new ethers.Contract(
   await rocketStorage['getAddress(bytes32)'](ethers.id('contract.addressrocketNodeManager')),
@@ -23,6 +29,7 @@ const rocketNodeManager = new ethers.Contract(
   provider)
 
 const walletSection = document.createElement('section')
+const transactionStatus = walletSection.appendChild(document.createElement('p'))
 const nodeDiv = walletSection.appendChild(document.createElement('div'))
 nodeDiv.classList.add('inputs')
 
@@ -62,7 +69,14 @@ catch (e) {
 
 await signerConnected()
 
-const addressPattern = '^(?:0x[0-9a-fA-F]{40})|(?:.{3,}\.eth)$'
+const nodeLabel = nodeDiv.appendChild(document.createElement('label'))
+nodeLabel.innerText = 'Node address'
+nodeLabel.classList.add('address')
+const nodeInput = nodeLabel.appendChild(document.createElement('input'))
+nodeInput.type = 'text'
+nodeInput.pattern = addressPattern
+const nodeEns = nodeLabel.appendChild(document.createElement('span'))
+nodeEns.classList.add('ens')
 
 const createSection = document.createElement('section')
 createSection.appendChild(document.createElement('h2')).innerText = 'Create New Marriage Contract'
@@ -114,6 +128,8 @@ function makeOnChangeAddress(addressInput, ensName) {
   return onChangeAddress
 }
 
+const onChangeNodeEns = makeOnChangeAddress(nodeInput, nodeEns)
+
 function addInputs(asset) {
   const div = createInputsDiv.appendChild(document.createElement('div'))
   const addressLabel = div.appendChild(document.createElement('label'))
@@ -161,20 +177,9 @@ function addInputs(asset) {
   feeDInput.addEventListener('change', updateFees)
 }
 
-const nodeLabel = nodeDiv.appendChild(document.createElement('label'))
-nodeLabel.innerText = 'Node address'
-nodeLabel.classList.add('address')
-const nodeInput = nodeLabel.appendChild(document.createElement('input'))
-nodeInput.type = 'text'
-nodeInput.pattern = addressPattern
-const nodeEns = nodeLabel.appendChild(document.createElement('span'))
-nodeEns.classList.add('ens')
-const onChangeNodeEns = makeOnChangeAddress(nodeInput, nodeEns)
 addInputs('ETH')
 addInputs('RPL')
 createInputsDiv.appendChild(button)
-const resultP = createSection.appendChild(document.createElement('p'))
-const deployFunction = factory.interface.getFunction('deploy').format()
 
 const changeSection = document.createElement('section')
 changeSection.appendChild(document.createElement('h2')).innerText = 'View/Use Marriage Contract'
@@ -188,7 +193,7 @@ function addWithdrawalDisplay(div, label) {
   const withdrawalInput = withdrawalLabel.appendChild(document.createElement('input'))
   withdrawalInput.type = 'text'
   withdrawalInput.setAttribute('readonly', true)
-  withdrawalInput.placeholder = 'none'
+  withdrawalInput.placeholder = 'none: set node address first'
   const withdrawalEns = withdrawalLabel.appendChild(document.createElement('span'))
   withdrawalEns.classList.add('ens')
   const withdrawalRocketSplit = withdrawalLabel.appendChild(document.createElement('span'))
@@ -276,9 +281,17 @@ nodeInput.addEventListener('change', async () => {
   await onChangeNodeWithdrawal()
 })
 
+async function handleTransaction(response) {
+  transactionStatus.innerText = `Transaction ${response.hash} submitted!`
+  const receipt = await response.wait()
+  transactionStatus.innerText = `Transaction ${receipt.hash} included in block ${receipt.blockNumber}!`
+  await onChangeNodeWithdrawal()
+  transactionStatus.innerText = ''
+}
+
 button.addEventListener('click', async () => {
   button.disabled = true
-  resultP.innerText = ''
+  transactionStatus.innerText = ''
   try {
     const response = await factory.connect(signer)[deployFunction](
       nodeInput.value,
@@ -286,16 +299,26 @@ button.addEventListener('click', async () => {
       document.getElementById('RPLOwner').value,
       [document.getElementById('ETHFeeN').value, document.getElementById('ETHFeeD').value],
       [document.getElementById('RPLFeeN').value, document.getElementById('RPLFeeD').value])
-    resultP.innerText = `Transaction ${response.hash} submitted!`
-    const receipt = await response.wait()
-    resultP.innerText = `Transaction ${receipt.hash} included in block ${receipt.blockNumber}!`
-    await onChangeNodeWithdrawal()
-    resultP.innerText = ''
+    await handleTransaction(response)
   }
   catch (e) {
-    resultP.innerText = e.message
+    transactionStatus.innerText = e.message
   }
   updateButton()
+})
+
+setDeployed.addEventListener('click', async () => {
+  setDeployed.disabled = true
+  transactionStatus.innerText = ''
+  try {
+    const response = await rocketStorage.connect(signer).setWithdrawalAddress(
+      nodeInput.value, signerInput.value, false)
+    await handleTransaction(response)
+  }
+  catch (e) {
+    transactionStatus.innerText = e.message
+    await onChangeNodeWithdrawal()
+  }
 })
 
 body.appendChild(walletSection)

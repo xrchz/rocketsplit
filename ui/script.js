@@ -1,9 +1,18 @@
 import { ethers } from "./node_modules/ethers/dist/ethers.js"
 
+// TODO: set/change ENS (reverse record) for any deployed RocketSplit
+// TODO: read contract rather than logs for rocketsplit details of a known address
+// TODO: change (or confirm change) RocketSplit withdrawal address to another address (if right account is signer)
+// TODO: better instructions
+// TODO: support walletconnect
+// TODO: better styling
+// TODO: check if any other wallets are needed?
+
 const body = document.querySelector('body')
 
 const emptyAddress = `0x${'0'.repeat(40)}`
 const addressPattern = '^(?:0x[0-9a-fA-F]{40})|(?:.{3,}\.eth)$'
+const addressPlaceholder = '0x... or ENS name'
 
 const provider = new ethers.BrowserProvider(window.ethereum)
 const network = await provider.getNetwork()
@@ -75,6 +84,7 @@ nodeLabel.classList.add('address')
 const nodeInput = nodeLabel.appendChild(document.createElement('input'))
 nodeInput.type = 'text'
 nodeInput.pattern = addressPattern
+nodeInput.placeholder = addressPlaceholder
 const nodeEns = nodeLabel.appendChild(document.createElement('span'))
 nodeEns.classList.add('ens')
 
@@ -141,6 +151,7 @@ function addInputs(asset) {
   addressInput.id = `${asset}Owner`
   addressInput.type = 'text'
   addressInput.pattern = addressPattern
+  addressInput.placeholder = addressPlaceholder
   const ensName = addressLabel.appendChild(document.createElement('span'))
   ensName.classList.add('ens')
   const feeNLabel = div.appendChild(document.createElement('label'))

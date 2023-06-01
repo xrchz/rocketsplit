@@ -1,11 +1,13 @@
 import { ethers } from "./node_modules/ethers/dist/ethers.js"
 
-// TODO: set/change ENS (reverse record) for any deployed RocketSplit
-// TODO: read contract rather than logs for rocketsplit details of a known address
 // TODO: change (or confirm change) RocketSplit withdrawal address to another address (if right account is signer)
+// TODO: update buttons on change of signer
+// TODO: add withdrawal actions
+// TODO: set/change ENS (reverse record) for any deployed RocketSplit
 // TODO: better instructions
 // TODO: support walletconnect
 // TODO: better styling
+// TODO: allow overriding the address to confirm pending (in case the last log isn't the right one)?
 // TODO: check if any other wallets are needed?
 
 const body = document.querySelector('body')
@@ -111,7 +113,7 @@ function updateButton() {
   button.disabled = !(addresses && fees && signer)
 }
 
-function makeOnChangeAddress(addressInput, ensName) {
+function makeOnChangeAddress(addressInput, ensName, updater) {
   async function onChangeAddress() {
     addressInput.setCustomValidity('')
     ensName.innerText = ''
@@ -133,12 +135,12 @@ function makeOnChangeAddress(addressInput, ensName) {
       }
     }
     addressInput.reportValidity()
-    updateButton()
+    updater()
   }
   return onChangeAddress
 }
 
-const onChangeNodeEns = makeOnChangeAddress(nodeInput, nodeEns)
+const onChangeNodeEns = makeOnChangeAddress(nodeInput, nodeEns, updateButton)
 
 const feeEstimateText = (num, den) => `${num}/${den} ≈ ${(100*num/den).toPrecision(3)}%`
 
@@ -171,13 +173,13 @@ function addInputs(asset) {
   const feeFraction = div.appendChild(document.createElement('span'))
   feeFraction.innerText = ''
   feeFraction.classList.add('fraction')
-  addressInput.addEventListener('change', makeOnChangeAddress(addressInput, ensName))
+  addressInput.addEventListener('change', makeOnChangeAddress(addressInput, ensName, updateButton))
   function updateFees() {
     feeNInput.max = feeDInput.value
     feeFraction.innerText = ''
     if (feeNInput.checkValidity() && feeDInput.checkValidity()) {
       if (!feeNInput.value) feeNInput.value = 0
-      if (!feeDInput.value) feeDInput.value = feeNInput.value || 1
+      if (!feeDInput.value) feeDInput.value = feeNInput.valueAsNumber || 1
       const num = feeNInput.valueAsNumber
       const den = feeDInput.valueAsNumber
       feeFraction.innerText = feeEstimateText(num, den)
@@ -199,8 +201,12 @@ changeSection.appendChild(document.createElement('h2')).innerText = 'View/Use Ma
 const changeInputsDiv = changeSection.appendChild(document.createElement('div'))
 changeInputsDiv.classList.add('inputs')
 
-async function contractDetails(args) {
-  const [, , ETHOwner, RPLOwner, [ETHFeeN, ETHFeeD], [RPLFeeN, RPLFeeD]] = args
+async function contractDetails(proxyContract) {
+  const ETHOwner = await proxyContract.ETHOwner()
+  const RPLOwner = await proxyContract.RPLOwner()
+  const [ETHFeeN, ETHFeeD] = await proxyContract.ETHFee()
+  const [RPLFeeN, RPLFeeD] = await proxyContract.RPLFee()
+  // TODO: show RPL principal etc.
   async function formatAddress(a) {
     const ens = await provider.lookupAddress(a)
     return ens ? `${a} (${ens})` : a
@@ -222,6 +228,7 @@ function addWithdrawalDisplay(div, label) {
   const withdrawalEns = withdrawalLabel.appendChild(document.createElement('span'))
   withdrawalEns.classList.add('ens')
   const withdrawalRocketSplit = withdrawalLabel.appendChild(document.createElement('span'))
+  const changers = []
   async function withdrawalChanged(withdrawalAddress) {
     withdrawalInput.value = withdrawalAddress
     withdrawalEns.innerText = ''
@@ -234,15 +241,70 @@ function addWithdrawalDisplay(div, label) {
         withdrawalEns.innerText = foundName
       const filter = factory.filters.DeployRocketSplit(withdrawalAddress, nodeInput.value)
       const logs = await factory.queryFilter(filter)
-      if (logs.length) {
-        const log = logs.pop()
+      const proxyContract = logs.length && new ethers.Contract(withdrawalAddress, rocketSplitABI, provider)
+      if (proxyContract &&
+          await proxyContract.guardian().catch(() => '') ===
+          await factory.getAddress()) {
         withdrawalRocketSplit.classList.add('rocketSplit')
-        const eventLog = new ethers.EventLog(log, factory.interface, filter.fragment)
-        withdrawalRocketSplit.innerText = await contractDetails(eventLog.args)
+        withdrawalRocketSplit.innerText = await contractDetails(proxyContract)
+        const ETHOwner = await proxyContract.ETHOwner()
+        if (ETHOwner === signerInput.value) {
+          const changeLabel = document.createElement('label')
+          changers.push(div.appendChild(changeLabel))
+          changeLabel.innerText = 'New withdrawal address'
+          changeLabel.classList.add('address')
+          const changeAddress = changeLabel.appendChild(document.createElement('input'))
+          changeAddress.type = 'text'
+          changeAddress.pattern = addressPattern
+          changeAddress.placeholder = addressPlaceholder
+          const changeEns = changeLabel.appendChild(document.createElement('span'))
+          changeEns.classList.add('ens')
+          const changeForceLabel = document.createElement('label')
+          changers.push(div.appendChild(changeForceLabel))
+          changeForceLabel.innerText = 'force confirmation'
+          const changeCheckbox = changeForceLabel.appendChild(document.createElement('input'))
+          changeCheckbox.type = 'checkbox'
+          const changeButton = document.createElement('input')
+          changers.push(div.appendChild(changeButton))
+          changeButton.type = 'button'
+          changeButton.value = 'Change Withdrawal Address'
+          changeButton.disabled = true
+          function updateChangeButton() {
+            changeButton.disabled = !(
+              ETHOwner === signerInput.value &&
+              changeAddress.value && changeAddress.checkValidity()
+            )
+          }
+          changeAddress.addEventListener('change',
+            makeOnChangeAddress(changeAddress, changeEns, updateChangeButton))
+          changeButton.addEventListener('click', async () => {
+            changeButton.disabled = true
+            transactionStatus.innerText = ''
+            try {
+              const response = await proxyContract.connect(signer).changeWithdrawalAddress(
+                changeAddress.value, changeCheckbox.checked)
+              await handleTransaction(response)
+            }
+            catch (e) {
+              transactionStatus.innerText = e.message
+              await onChangeNodeWithdrawal()
+            }
+            updateChangeButton()
+          })
+        }
+        if (await proxyContract.pendingWithdrawalAddress() !== emptyAddress &&
+            await proxyContract.RPLOwner() === signerInput.value) {
+          // TODO: show confirm change details (readonly)
+          // TODO: add confirm change button
+        }
       }
       else {
         withdrawalRocketSplit.classList.add('notRocketSplit')
+        while (changers.length) changers.pop().remove()
       }
+    }
+    else {
+      while (changers.length) changers.pop().remove()
     }
   }
   return [withdrawalChanged, withdrawalInput, withdrawalEns, withdrawalRocketSplit, withdrawalLabel]

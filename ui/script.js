@@ -206,15 +206,16 @@ async function contractDetails(proxyContract) {
   const RPLOwner = await proxyContract.RPLOwner()
   const [ETHFeeN, ETHFeeD] = await proxyContract.ETHFee()
   const [RPLFeeN, RPLFeeD] = await proxyContract.RPLFee()
-  // TODO: show RPL principal etc.
+  const RPLPrincipal = await proxyContract.RPLPrincipal()
   async function formatAddress(a) {
     const ens = await provider.lookupAddress(a)
     return ens ? `${a} (${ens})` : a
   }
-  return ['',
-          `ETH: ${await formatAddress(ETHOwner)} ${feeEstimateText(Number(ETHFeeN), Number(ETHFeeD))}`,
-          `RPL: ${await formatAddress(RPLOwner)} ${feeEstimateText(Number(RPLFeeN), Number(RPLFeeD))}`]
-         .join(' | ')
+  return [`ETH Owner: ${await formatAddress(ETHOwner)}`,
+          `ETH Fee: ${feeEstimateText(Number(ETHFeeN), Number(ETHFeeD))}`,
+          `RPL Owner: ${await formatAddress(RPLOwner)}`,
+          `RPL Fee: ${feeEstimateText(Number(RPLFeeN), Number(RPLFeeD))}`,
+          `Staked principal: ${ethers.formatEther(RPLPrincipal)} RPL`]
 }
 
 function addWithdrawalDisplay(div, label) {
@@ -246,7 +247,12 @@ function addWithdrawalDisplay(div, label) {
           await proxyContract.guardian().catch(() => '') ===
           await factory.getAddress()) {
         withdrawalRocketSplit.classList.add('rocketSplit')
-        withdrawalRocketSplit.innerText = await contractDetails(proxyContract)
+        withdrawalRocketSplit.append(...await contractDetails(proxyContract).then(
+          lines => lines.map(line => {
+            const span = document.createElement('span')
+            span.innerText = line
+            return span
+          })))
         const ETHOwner = await proxyContract.ETHOwner()
         if (ETHOwner === signerInput.value) {
           const changeLabel = document.createElement('label')

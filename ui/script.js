@@ -298,10 +298,42 @@ function addWithdrawalDisplay(div, label) {
             updateChangeButton()
           })
         }
+        const RPLOwner = await proxyContract.RPLOwner()
         if (await proxyContract.pendingWithdrawalAddress() !== emptyAddress &&
-            await proxyContract.RPLOwner() === signerInput.value) {
-          // TODO: show confirm change details (readonly)
-          // TODO: add confirm change button
+            RPLOwner === signerInput.value) {
+          const changeLabel = document.createElement('label')
+          changers.push(div.appendChild(changeLabel))
+          changeLabel.innerText = 'Pending new withdrawal address'
+          changeLabel.classList.add('address')
+          const changeAddress = changeLabel.appendChild(document.createElement('input'))
+          changeAddress.type = 'text'
+          changeAddress.value = await proxyContract.pendingWithdrawalAddress()
+          changeAddress.setAttribute('readonly', true)
+          const changeEns = changeLabel.appendChild(document.createElement('span'))
+          changeEns.classList.add('ens')
+          const foundName = await provider.lookupAddress(changeAddress.value)
+          if (foundName)
+            changeEns.innerText = foundName
+          const changeForceLabel = document.createElement('label')
+          changers.push(div.appendChild(changeForceLabel))
+          changeForceLabel.innerText = 'force confirmation'
+          const changeCheckbox = changeForceLabel.appendChild(document.createElement('input'))
+          changeCheckbox.type = 'checkbox'
+          changeCheckbox.checked = await proxyContract.pendingForce()
+          changeCheckbox.setAttribute('readonly', true)
+          const changeButton = document.createElement('input')
+          changers.push(div.appendChild(changeButton))
+          function updateChangeButton() {
+            changeButton.disabled = RPLOwner !== signerInput.value
+          }
+          changeButton.type = 'button'
+          changeButton.value = 'Confirm Withdrawal Address Change'
+          changeButton.addEventListener('click', async () => {
+            changeButton.disabled = true
+            transactionStatus.innerText = ''
+            // TODO: add confirm change button action
+            updateChangeButton()
+          })
         }
       }
       else {

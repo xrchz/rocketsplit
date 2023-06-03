@@ -2,9 +2,10 @@ import { ethers } from "./node_modules/ethers/dist/ethers.js"
 
 // TODO: change (or confirm change) RocketSplit withdrawal address to another address (if right account is signer)
 // TODO: update buttons on change of signer
-// TODO: add withdrawal actions
+// TODO: add withdrawal actions: withdraw ETH, withdraw RPL, withdraw rewards
 // TODO: set/change ENS (reverse record) for any deployed RocketSplit
-// TODO: better instructions
+// TODO: better instructions (+ link to docs?)
+// TODO: check ux when transactions fail, are rejected, are replaced, etc.
 // TODO: support walletconnect
 // TODO: better styling
 // TODO: allow overriding the address to confirm pending (in case the last log isn't the right one)?
@@ -331,7 +332,15 @@ function addWithdrawalDisplay(div, label) {
           changeButton.addEventListener('click', async () => {
             changeButton.disabled = true
             transactionStatus.innerText = ''
-            // TODO: add confirm change button action
+            try {
+              const response = await proxyContract.connect(signer).confirmChangeWithdrawalAddress(
+                changeAddress.value, changeCheckbox.checked)
+              await handleTransaction(response)
+            }
+            catch (e) {
+              transactionStatus.innerText = e.message
+              await onChangeNodeWithdrawal()
+            }
             updateChangeButton()
           })
         }

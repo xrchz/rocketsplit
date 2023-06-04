@@ -40,12 +40,23 @@ const rocketNodeManager = new ethers.Contract(
    'function getNodePendingWithdrawalAddress(address _nodeAddress) view returns (address)'],
   provider)
 
+const headerSection = document.createElement('header')
+headerSection.appendChild(document.createElement('h2')).innerText = 'RocketSplit'
+
 const walletSection = document.createElement('section')
 const transactionStatus = walletSection.appendChild(document.createElement('p'))
 const nodeDiv = walletSection.appendChild(document.createElement('div'))
 nodeDiv.classList.add('inputs')
 
-const signerLabel = nodeDiv.appendChild(document.createElement('label'))
+// Create our connect wallet button.
+const btnConnectWallet = document.createElement('input')
+btnConnectWallet.type = 'button'
+btnConnectWallet.value = 'Connect Wallet'
+btnConnectWallet.style.display = 'none'
+btnConnectWallet.addEventListener('click', signerConnected)
+walletSection.appendChild(btnConnectWallet)
+
+const signerLabel = headerSection.appendChild(document.createElement('label'))
 signerLabel.classList.add('address')
 signerLabel.innerText = 'Connected account'
 const signerInput = signerLabel.appendChild(document.createElement('input'))
@@ -58,7 +69,12 @@ signerEns.classList.add('ens')
 async function signerConnected() {
   signerInput.value = ''
   signerEns.innerText = ''
-  signer = await provider.getSigner()
+  signer = await provider.getSigner().catch((err) => {
+    // Output error to error div.
+    transactionStatus.innerText = "There was a problem connecting to your wallet. Please try again."
+    console.error(err)
+  })
+
   if (signer) {
     signerInput.value = await signer.getAddress()
     if (signerInput.value) {
@@ -69,17 +85,63 @@ async function signerConnected() {
   }
 }
 
+const checkAccounts = async () => {
+  console.log("Checking connected accounts.")
+  const accounts = await window.ethereum.send('eth_accounts').catch((err) => {
+    //Error
+    if (err.code === 4001) { // EIP 1193 userRejectedRequest error
+      console.log('Please connect to MetaMask.')
+    } else {
+      console.error(err)
+    }
+  });
+
+  if(accounts.result.length > 0) {
+    console.log("Found accounts, connecting to first account.")
+    await signerConnected()
+    transactionStatus.innerText = ''
+    setDisplayMode('connected')
+    return
+  }
+
+  // Clear the wallet input field.
+  signerInput.value = ''
+  setDisplayMode('not-connected')
+}
+
+function setDisplayMode(mode) {
+  // Sets the different stages of the UI.
+  switch(mode) {
+    case 'not-connected':
+      btnConnectWallet.style.display = 'block'
+
+      // Hide the wallet section
+      walletSection.style.display = 'flex'
+      // Hide the createSection
+      createSection.style.display = 'none'
+      // Hide the changeSection
+      changeSection.style.display = 'none'
+
+      break
+    case 'connected':
+      btnConnectWallet.style.display = 'none'
+      // Hide the wallet section
+      walletSection.style.display = 'flex'
+      // Hide the createSection
+      createSection.style.display = 'flex'
+      // Hide the changeSection
+      changeSection.style.display = 'flex'
+      break
+    default:
+      console.error('Unknown display mode: ' + mode)
+  }
+}
+
+
+// Listen for wallet events.
 window.ethereum.on('connect', signerConnected)
-window.ethereum.on('accountsChanged', signerConnected)
+window.ethereum.on('accountsChanged', checkAccounts)
 
-try {
-  await window.ethereum.send('eth_requestAccounts')
-}
-catch (e) {
-  body.appendChild(document.createElement('p')).innerText = e.message
-}
-
-await signerConnected()
 
 const nodeLabel = nodeDiv.appendChild(document.createElement('label'))
 nodeLabel.innerText = 'Node address'
@@ -103,6 +165,10 @@ const button = document.createElement('input')
 button.type = 'button'
 button.value = 'Deploy Contract'
 button.disabled = true
+
+
+// Check for connected accounts.
+checkAccounts()
 
 function updateButton() {
   const addresses = Array.from(
@@ -488,6 +554,7 @@ confirmPending.addEventListener('click', async () => {
   }
 })
 
+body.appendChild(headerSection)
 body.appendChild(walletSection)
 body.appendChild(changeSection)
 body.appendChild(createSection)

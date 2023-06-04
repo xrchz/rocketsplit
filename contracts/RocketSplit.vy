@@ -112,7 +112,8 @@ def withdrawRPL():
 @external
 def withdrawETH():
   assert msg.sender == self.ETHOwner, "auth"
-  assert self._getRocketNodeStaking().getNodeRPLStake(self.nodeAddress) == 0, "RPL"
+  assert self._getRocketNodeStaking().getNodeRPLStake(self.nodeAddress) == 0, "stake"
+  assert self.RPLPrincipal == 0, "principal"
   send(msg.sender, self.balance)
 
 @internal

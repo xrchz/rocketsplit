@@ -2,9 +2,10 @@ import { ethers } from "./node_modules/ethers/dist/ethers.js"
 
 // TODO: change (or confirm change) RocketSplit withdrawal address to another address (if right account is signer)
 // TODO: update buttons on change of signer
-// TODO: add withdrawal actions
+// TODO: add withdrawal actions: withdraw ETH, withdraw RPL, withdraw rewards
 // TODO: set/change ENS (reverse record) for any deployed RocketSplit
-// TODO: better instructions
+// TODO: better instructions (+ link to docs?)
+// TODO: check ux when transactions fail, are rejected, are replaced, etc.
 // TODO: support walletconnect
 // TODO: better styling
 // TODO: allow overriding the address to confirm pending (in case the last log isn't the right one)?
@@ -206,15 +207,16 @@ async function contractDetails(proxyContract) {
   const RPLOwner = await proxyContract.RPLOwner()
   const [ETHFeeN, ETHFeeD] = await proxyContract.ETHFee()
   const [RPLFeeN, RPLFeeD] = await proxyContract.RPLFee()
-  // TODO: show RPL principal etc.
+  const RPLPrincipal = await proxyContract.RPLPrincipal()
   async function formatAddress(a) {
     const ens = await provider.lookupAddress(a)
     return ens ? `${a} (${ens})` : a
   }
-  return ['',
-          `ETH: ${await formatAddress(ETHOwner)} ${feeEstimateText(Number(ETHFeeN), Number(ETHFeeD))}`,
-          `RPL: ${await formatAddress(RPLOwner)} ${feeEstimateText(Number(RPLFeeN), Number(RPLFeeD))}`]
-         .join(' | ')
+  return [`ETH Owner: ${await formatAddress(ETHOwner)}`,
+          `ETH Fee: ${feeEstimateText(Number(ETHFeeN), Number(ETHFeeD))}`,
+          `RPL Owner: ${await formatAddress(RPLOwner)}`,
+          `RPL Fee: ${feeEstimateText(Number(RPLFeeN), Number(RPLFeeD))}`,
+          `Staked principal: ${ethers.formatEther(RPLPrincipal)} RPL`]
 }
 
 function addWithdrawalDisplay(div, label) {
@@ -246,7 +248,12 @@ function addWithdrawalDisplay(div, label) {
           await proxyContract.guardian().catch(() => '') ===
           await factory.getAddress()) {
         withdrawalRocketSplit.classList.add('rocketSplit')
-        withdrawalRocketSplit.innerText = await contractDetails(proxyContract)
+        withdrawalRocketSplit.append(...await contractDetails(proxyContract).then(
+          lines => lines.map(line => {
+            const span = document.createElement('span')
+            span.innerText = line
+            return span
+          })))
         const ETHOwner = await proxyContract.ETHOwner()
         if (ETHOwner === signerInput.value) {
           const changeLabel = document.createElement('label')
@@ -292,10 +299,50 @@ function addWithdrawalDisplay(div, label) {
             updateChangeButton()
           })
         }
+        const RPLOwner = await proxyContract.RPLOwner()
         if (await proxyContract.pendingWithdrawalAddress() !== emptyAddress &&
-            await proxyContract.RPLOwner() === signerInput.value) {
-          // TODO: show confirm change details (readonly)
-          // TODO: add confirm change button
+            RPLOwner === signerInput.value) {
+          const changeLabel = document.createElement('label')
+          changers.push(div.appendChild(changeLabel))
+          changeLabel.innerText = 'Pending new withdrawal address'
+          changeLabel.classList.add('address')
+          const changeAddress = changeLabel.appendChild(document.createElement('input'))
+          changeAddress.type = 'text'
+          changeAddress.value = await proxyContract.pendingWithdrawalAddress()
+          changeAddress.setAttribute('readonly', true)
+          const changeEns = changeLabel.appendChild(document.createElement('span'))
+          changeEns.classList.add('ens')
+          const foundName = await provider.lookupAddress(changeAddress.value)
+          if (foundName)
+            changeEns.innerText = foundName
+          const changeForceLabel = document.createElement('label')
+          changers.push(div.appendChild(changeForceLabel))
+          changeForceLabel.innerText = 'force confirmation'
+          const changeCheckbox = changeForceLabel.appendChild(document.createElement('input'))
+          changeCheckbox.type = 'checkbox'
+          changeCheckbox.checked = await proxyContract.pendingForce()
+          changeCheckbox.setAttribute('readonly', true)
+          const changeButton = document.createElement('input')
+          changers.push(div.appendChild(changeButton))
+          function updateChangeButton() {
+            changeButton.disabled = RPLOwner !== signerInput.value
+          }
+          changeButton.type = 'button'
+          changeButton.value = 'Confirm Withdrawal Address Change'
+          changeButton.addEventListener('click', async () => {
+            changeButton.disabled = true
+            transactionStatus.innerText = ''
+            try {
+              const response = await proxyContract.connect(signer).confirmChangeWithdrawalAddress(
+                changeAddress.value, changeCheckbox.checked)
+              await handleTransaction(response)
+            }
+            catch (e) {
+              transactionStatus.innerText = e.message
+              await onChangeNodeWithdrawal()
+            }
+            updateChangeButton()
+          })
         }
       }
       else {

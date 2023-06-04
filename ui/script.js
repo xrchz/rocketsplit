@@ -11,6 +11,48 @@ import { ethers } from "./node_modules/ethers/dist/ethers.js"
 // TODO: allow overriding the address to confirm pending (in case the last log isn't the right one)?
 // TODO: check if any other wallets are needed?
 
+// Dynamic elements:
+// 00: Signer, SignerENS
+// 01: Node, NodeENS
+// 02: ETHOwner, ETHOwnerENS
+// 03: RPLOwner, RPLOwnerENS
+// 04: ETHFeeN, ETHFeeD, ETHFeePercent
+// 05: RPLFeeN, RPLFeeD, RPLFeePercent
+// 06: DeployButton
+// 07: WithdrawalAddress
+// 08: DeployedAddress
+// 09: PendingWithdrawalAddress
+// 10: RocketSplitDetails
+// 11: NewENS
+// 12: ChangeENSButton
+// 13: ConfirmDeployedButton
+// 14: ChangeAddress, ChangeAddressENS, ChangeForce
+// 15: ChangeButton
+// 16: ConfirmChangeAddress, ConfirmChangeENS, ConfirmChangeForce, ConfirmChangeButton
+// 17: WithdrawRewardsButton
+// 18: WithdrawRPLButton
+// 19: WithdrawETHButton
+//
+// Dependencies:
+// 02: 00, 01
+// 03: 00, 01
+// 04: 00, 01
+// 05: 00, 01
+// 06: 00, 01, 02, 03, 04, 05
+// 07: 01
+// 08: 01
+// 09: 01
+// 10: 01
+// 11: 00, 01
+// 12: 00, 01, 11
+// 13: 00, 01
+// 14: 00, 01
+// 15: 00, 01, 14
+// 16: 00, 01
+// 17: 00, 01
+// 18: 00, 01
+// 19: 00, 01
+
 const body = document.querySelector('body')
 
 const emptyAddress = `0x${'0'.repeat(40)}`
@@ -161,23 +203,23 @@ description.innerText = 'Information about what this form does should go here. N
 const createInputsDiv = createSection.appendChild(document.createElement('div'))
 createInputsDiv.classList.add('inputs')
 
-const button = document.createElement('input')
-button.type = 'button'
-button.value = 'Deploy Contract'
-button.disabled = true
+const deployButton = document.createElement('input')
+deployButton.type = 'button'
+deployButton.value = 'Deploy Contract'
+deployButton.disabled = true
 
 
 // Check for connected accounts.
 checkAccounts()
 
-function updateButton() {
+function updateDeployButton() {
   const addresses = Array.from(
     createInputsDiv.querySelectorAll('.address > input')
   ).every(a => a.value && a.checkValidity())
   const fees = Array.from(
     createInputsDiv.querySelectorAll('.fraction')
   ).every(s => s.innerText)
-  button.disabled = !(addresses && fees && signer)
+  deployButton.disabled = !(addresses && fees && signer)
 }
 
 function makeOnChangeAddress(addressInput, ensName, updater) {
@@ -207,7 +249,7 @@ function makeOnChangeAddress(addressInput, ensName, updater) {
   return onChangeAddress
 }
 
-const onChangeNodeEns = makeOnChangeAddress(nodeInput, nodeEns, updateButton)
+const onChangeNodeEns = makeOnChangeAddress(nodeInput, nodeEns, updateDeployButton)
 
 const feeEstimateText = (num, den) => `${num}/${den} ≈ ${(100*num/den).toPrecision(3)}%`
 
@@ -240,7 +282,7 @@ function addInputs(asset) {
   const feeFraction = div.appendChild(document.createElement('span'))
   feeFraction.innerText = ''
   feeFraction.classList.add('fraction')
-  addressInput.addEventListener('change', makeOnChangeAddress(addressInput, ensName, updateButton))
+  addressInput.addEventListener('change', makeOnChangeAddress(addressInput, ensName, updateDeployButton))
   function updateFees() {
     feeNInput.max = feeDInput.value
     feeFraction.innerText = ''
@@ -253,7 +295,7 @@ function addInputs(asset) {
     }
     feeDInput.reportValidity()
     feeNInput.reportValidity()
-    updateButton()
+    updateDeployButton()
   }
   feeNInput.addEventListener('change', updateFees)
   feeDInput.addEventListener('change', updateFees)
@@ -261,7 +303,7 @@ function addInputs(asset) {
 
 addInputs('ETH')
 addInputs('RPL')
-createInputsDiv.appendChild(button)
+createInputsDiv.appendChild(deployButton)
 
 const changeSection = document.createElement('section')
 changeSection.appendChild(document.createElement('h2')).innerText = 'View/Use Marriage Contract'
@@ -460,7 +502,7 @@ async function onChangeNodeWithdrawal() {
     if (!(await rocketNodeManager.getNodeExists(nodeInput.value).catch(() => false))) {
       nodeInput.setCustomValidity('Node address not registered with Rocket Pool')
       nodeInput.reportValidity()
-      button.disabled = true
+      deployButton.disabled = true
     }
     else {
       const pending = await rocketNodeManager.getNodePendingWithdrawalAddress(nodeInput.value)
@@ -508,8 +550,8 @@ async function handleTransaction(response) {
   transactionStatus.innerText = ''
 }
 
-button.addEventListener('click', async () => {
-  button.disabled = true
+deployButton.addEventListener('click', async () => {
+  deployButton.disabled = true
   transactionStatus.innerText = ''
   try {
     const response = await factory.connect(signer)[deployFunction](
@@ -523,7 +565,7 @@ button.addEventListener('click', async () => {
   catch (e) {
     transactionStatus.innerText = e.message
   }
-  updateButton()
+  updateDeployButton()
 })
 
 setDeployed.addEventListener('click', async () => {

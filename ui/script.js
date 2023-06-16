@@ -85,18 +85,70 @@ const rocketNodeManager = new ethers.Contract(
 const headerSection = document.createElement('header')
 headerSection.appendChild(document.createElement('h2')).innerText = 'RocketSplit'
 
+const transactionStatus = document.createElement('p')
+transactionStatus.classList.add('status')
+transactionStatus.classList.add('hidden')
+
+
 const walletSection = document.createElement('section')
-const transactionStatus = walletSection.appendChild(document.createElement('p'))
+const helpText = walletSection.appendChild(document.createElement('p'))
+helpText.innerText = 'Create a new marriage contract or view an existing one. The first step is to find your node. Then you can manage or create your marriage contract. This contract will act as your withdrawal address for your node.'
 const nodeDiv = walletSection.appendChild(document.createElement('div'))
 nodeDiv.classList.add('inputs')
 
-// Create our connect wallet button.
-const btnConnectWallet = document.createElement('input')
+// Create our connect wallet button for Metamask
+const btnConnectWallet = document.createElement('button')
 btnConnectWallet.type = 'button'
-btnConnectWallet.value = 'Connect Wallet'
-btnConnectWallet.style.display = 'none'
-btnConnectWallet.addEventListener('click', signerConnected)
+const txtConnectWallet = document.createElement('span')
+txtConnectWallet.innerText = 'Connect with Metamask'
+txtConnectWallet.classList.add('button--text')
+btnConnectWallet.appendChild(txtConnectWallet)
+btnConnectWallet.classList.add('hidden')
+btnConnectWallet.addEventListener('click', async () => {
+  try {
+    btnConnectWallet.classList.add('button--loading')
+    transactionStatus.innerText = "";
+    transactionStatus.classList.add('hidden')
+    await signerConnected()
+  }
+  catch (e) {
+    btnConnectWallet.classList.remove('button--loading')
+    transactionStatus.innerText = "There was a problem connecting to your wallet. Please try again."
+    transactionStatus.classList.remove('hidden')
+  }
+})
 walletSection.appendChild(btnConnectWallet)
+
+
+// Create our check node address button
+const btnFindNode = document.createElement('button')
+btnFindNode.type = 'button'
+const txtFindNode = document.createElement('span')
+txtFindNode.innerText = 'Find Node'
+txtFindNode.classList.add('button--text')
+btnFindNode.classList.add('hidden')
+btnFindNode.appendChild(txtFindNode)
+btnFindNode.addEventListener('click', async () => {
+  try {
+    btnFindNode.classList.add('button--loading')
+    transactionStatus.innerText = "";
+    transactionStatus.classList.add('hidden')
+
+    await onChangeNodeEns()
+    await onChangeNodeWithdrawal()
+
+    btnFindNode.classList.remove('button--loading')
+    setDisplayMode('connected')
+  }
+  catch (e) {
+    btnFindNode.classList.remove('button--loading')
+    transactionStatus.innerText = "There was a problem finding your node. Please try again.";
+    transactionStatus.classList.remove('hidden')
+    setDisplayMode('find-node')
+    console.error(e)
+  }
+})
+walletSection.appendChild(btnFindNode)
 
 const signerLabel = headerSection.appendChild(document.createElement('label'))
 signerLabel.classList.add('address')
@@ -112,9 +164,7 @@ async function signerConnected() {
   signerInput.value = ''
   signerEns.innerText = ''
   signer = await provider.getSigner().catch((err) => {
-    // Output error to error div.
-    transactionStatus.innerText = "There was a problem connecting to your wallet. Please try again."
-    console.error(err)
+    throw err
   })
 
   if (signer) {
@@ -142,7 +192,8 @@ const checkAccounts = async () => {
     console.log("Found accounts, connecting to first account.")
     await signerConnected()
     transactionStatus.innerText = ''
-    setDisplayMode('connected')
+    transactionStatus.classList.add('hidden')
+    setDisplayMode('find-node')
     return
   }
 
@@ -155,24 +206,28 @@ function setDisplayMode(mode) {
   // Sets the different stages of the UI.
   switch(mode) {
     case 'not-connected':
-      btnConnectWallet.style.display = 'block'
+      btnConnectWallet.classList.remove('hidden')
+      btnFindNode.classList.add('hidden')
 
       // Hide the wallet section
-      walletSection.style.display = 'flex'
+      walletSection.classList.add('section-active')
       // Hide the createSection
-      createSection.style.display = 'none'
+      createSection.classList.remove('section-active')
       // Hide the changeSection
-      changeSection.style.display = 'none'
+      changeSection.classList.remove('section-active')
 
       break
+    case 'find-node':
+      btnConnectWallet.classList.add('hidden')
+      btnFindNode.classList.remove('hidden')
+      walletSection.classList.add('section-active')
+      createSection.classList.remove('section-active')
+      changeSection.classList.remove('section-active')
+      break
     case 'connected':
-      btnConnectWallet.style.display = 'none'
-      // Hide the wallet section
-      walletSection.style.display = 'flex'
-      // Hide the createSection
-      createSection.style.display = 'flex'
-      // Hide the changeSection
-      changeSection.style.display = 'flex'
+      btnConnectWallet.classList.add('hidden')
+      createSection.classList.add('section-active')
+      changeSection.classList.add('section-active')
       break
     default:
       console.error('Unknown display mode: ' + mode)
@@ -395,6 +450,7 @@ function addWithdrawalDisplay(div, label) {
           changeButton.addEventListener('click', async () => {
             changeButton.disabled = true
             transactionStatus.innerText = ''
+            transactionStatus.classList.add('hidden')
             try {
               const response = await proxyContract.connect(signer).changeWithdrawalAddress(
                 changeAddress.value, changeCheckbox.checked)
@@ -402,6 +458,7 @@ function addWithdrawalDisplay(div, label) {
             }
             catch (e) {
               transactionStatus.innerText = e.message
+              transactionStatus.classList.remove('hidden')
               await onChangeNodeWithdrawal()
             }
             updateChangeButton()
@@ -440,6 +497,7 @@ function addWithdrawalDisplay(div, label) {
           changeButton.addEventListener('click', async () => {
             changeButton.disabled = true
             transactionStatus.innerText = ''
+            transactionStatus.classList.add('hidden')
             try {
               const response = await proxyContract.connect(signer).confirmChangeWithdrawalAddress(
                 changeAddress.value, changeCheckbox.checked)
@@ -447,6 +505,7 @@ function addWithdrawalDisplay(div, label) {
             }
             catch (e) {
               transactionStatus.innerText = e.message
+              transactionStatus.classList.remove('hidden')
               await onChangeNodeWithdrawal()
             }
             updateChangeButton()
@@ -489,6 +548,7 @@ setDeployed.value = 'Set as Withdrawal Address'
 setDeployed.disabled = true
 
 async function onChangeNodeWithdrawal() {
+  console.log("Checking node address")
   await withdrawalChanged('')
   await deployedSplitChanged('')
   await pendingChanged('')
@@ -503,14 +563,15 @@ async function onChangeNodeWithdrawal() {
       nodeInput.setCustomValidity('Node address not registered with Rocket Pool')
       nodeInput.reportValidity()
       deployButton.disabled = true
+      throw new Error('Node address not registered with Rocket Pool')
     }
     else {
-      const pending = await rocketNodeManager.getNodePendingWithdrawalAddress(nodeInput.value)
+      const pending = await rocketNodeManager.getNodePendingWithdrawalAddress(nodeInput.value).catch(() => false)
       if (pending && pending !== emptyAddress) {
         await pendingChanged(pending)
         pendingDiv.classList.remove('hidden')
       }
-      const withdrawal = await rocketNodeManager.getNodeWithdrawalAddress(nodeInput.value)
+      const withdrawal = await rocketNodeManager.getNodeWithdrawalAddress(nodeInput.value).catch(() => false)
       if (withdrawal) {
         await withdrawalChanged(withdrawal)
       }
@@ -535,14 +596,14 @@ async function onChangeNodeWithdrawal() {
       }
     }
   }
+  else {
+    throw new Error('Node address not valid')
+  }
 }
 
-nodeInput.addEventListener('change', async () => {
-  await onChangeNodeEns()
-  await onChangeNodeWithdrawal()
-})
 
 async function handleTransaction(response) {
+  transactionStatus.classList.remove('hidden')
   transactionStatus.innerText = `Transaction ${response.hash} submitted!`
   const receipt = await response.wait()
   transactionStatus.innerText = `Transaction ${receipt.hash} included in block ${receipt.blockNumber}!`
@@ -553,6 +614,7 @@ async function handleTransaction(response) {
 deployButton.addEventListener('click', async () => {
   deployButton.disabled = true
   transactionStatus.innerText = ''
+  transactionStatus.classList.add('hidden')
   try {
     const response = await factory.connect(signer)[deployFunction](
       nodeInput.value,
@@ -563,6 +625,7 @@ deployButton.addEventListener('click', async () => {
     await handleTransaction(response)
   }
   catch (e) {
+    transactionStatus.classList.remove('hidden')
     transactionStatus.innerText = e.message
   }
   updateDeployButton()
@@ -597,6 +660,7 @@ confirmPending.addEventListener('click', async () => {
 })
 
 body.appendChild(headerSection)
+body.appendChild(transactionStatus)
 body.appendChild(walletSection)
 body.appendChild(changeSection)
 body.appendChild(createSection)

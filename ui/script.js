@@ -1,4 +1,5 @@
 import { ethers } from "./node_modules/ethers/dist/ethers.js"
+import { EthereumProvider } from "@walletconnect/ethereum-provider";
 
 // TODO: change (or confirm change) RocketSplit withdrawal address to another address (if right account is signer)
 // TODO: update buttons on change of signer
@@ -59,28 +60,42 @@ const emptyAddress = `0x${'0'.repeat(40)}`
 const addressPattern = '^(?:0x[0-9a-fA-F]{40})|(?:.{3,}\.eth)$'
 const addressPlaceholder = '0x... or ENS name'
 
-const provider = new ethers.BrowserProvider(window.ethereum)
-const network = await provider.getNetwork()
-console.log(`Connected to ${network.name}`)
+// The WalletConnect project ID.
+const projectId = process.env.PROJECT_ID
 
-const rocketSplitABI = await fetch('RocketSplit.json').then(res => res.json()).then(j => j.abi)
-const factory = new ethers.Contract(await fetch('RocketSplitAddress.json').then(res => res.json()), rocketSplitABI, provider)
-console.log(`Factory contract is ${await factory.getAddress()}`)
-const deployFunction = factory.interface.getFunction('deploy').format()
+// Load the provider from local storage.
+let provider = undefined
 
-let signer
+let ethereumProvider = undefined
+let signer = undefined
 
-const rocketStorage = new ethers.Contract(
-  await fetch('RocketStorageAddress.json').then(res => res.json()),
-  ['function getAddress(bytes32 key) view returns (address)',
-   'function setWithdrawalAddress(address _nodeAddress, address _newWithdrawalAddress, bool _confirm)'],
-  provider)
-const rocketNodeManager = new ethers.Contract(
-  await rocketStorage['getAddress(bytes32)'](ethers.id('contract.addressrocketNodeManager')),
-  ['function getNodeExists(address _nodeAddress) view returns (bool)',
-   'function getNodeWithdrawalAddress(address _nodeAddress) view returns (address)',
-   'function getNodePendingWithdrawalAddress(address _nodeAddress) view returns (address)'],
-  provider)
+const rocketSplitABI = require('./RocketSplit.json')
+const factoryAddress = require('./RocketSplitAddress.json')
+const rocketStorageAddress = require('./RocketStorageAddress.json')
+
+let factory = undefined
+let deployFunction = undefined
+let rocketStorage = undefined
+let rocketNodeManager = undefined
+
+// Function to create the contract instances we need to interact with the protocol.
+const createContracts = async () => {
+  factory = new ethers.Contract(factoryAddress, rocketSplitABI.abi, provider)
+  console.log(`Factory contract is ${await factory.getAddress()}`)
+  deployFunction = factory.interface.getFunction('deploy').format()
+
+  rocketStorage = new ethers.Contract(
+    rocketStorageAddress,
+    ['function getAddress(bytes32 key) view returns (address)',
+    'function setWithdrawalAddress(address _nodeAddress, address _newWithdrawalAddress, bool _confirm)'],
+    provider)
+  rocketNodeManager = new ethers.Contract(
+    await rocketStorage['getAddress(bytes32)'](ethers.id('contract.addressrocketNodeManager')),
+    ['function getNodeExists(address _nodeAddress) view returns (bool)',
+    'function getNodeWithdrawalAddress(address _nodeAddress) view returns (address)',
+    'function getNodePendingWithdrawalAddress(address _nodeAddress) view returns (address)'],
+    provider)
+}
 
 const headerSection = document.createElement('header')
 headerSection.appendChild(document.createElement('h2')).innerText = 'RocketSplit'
@@ -109,7 +124,14 @@ btnConnectWallet.addEventListener('click', async () => {
     btnConnectWallet.classList.add('button--loading')
     transactionStatus.innerText = "";
     transactionStatus.classList.add('hidden')
+
+    provider = new ethers.BrowserProvider(window.ethereum)
+
     await signerConnected()
+    await createContracts()
+
+    setDisplayMode('find-node')
+
   }
   catch (e) {
     btnConnectWallet.classList.remove('button--loading')
@@ -118,6 +140,58 @@ btnConnectWallet.addEventListener('click', async () => {
   }
 })
 walletSection.appendChild(btnConnectWallet)
+
+// Create our wallet connect button.
+const btnConnectWalletConnect = document.createElement('button')
+btnConnectWalletConnect.type = 'button'
+const txtConnectWalletConnect = document.createElement('span')
+txtConnectWalletConnect.innerText = 'Connect with WalletConnect'
+txtConnectWalletConnect.classList.add('button--text')
+btnConnectWalletConnect.appendChild(txtConnectWalletConnect)
+btnConnectWalletConnect.classList.add('hidden')
+btnConnectWalletConnect.addEventListener('click', async () => {
+  try {
+    btnConnectWalletConnect.classList.add('button--loading')
+    transactionStatus.innerText = "";
+    transactionStatus.classList.add('hidden')
+    if (!ethereumProvider) {
+      ethereumProvider = await EthereumProvider.init({
+        projectId,
+        showQrModal: true,
+        qrModalOptions: { themeMode: "light" },
+        chains: [1],
+        methods: ["eth_sendTransaction", "personal_sign"],
+        events: ["chainChanged", "accountsChanged"],
+        metadata: {
+          name: "RocketSplit",
+          description: "Rocketsplit",
+          url: "https://rocketsplit.xyz",
+          icons: ["https://my-dapp.com/logo.png"],
+        },
+      });
+
+      // Set up connection listener
+      ethereumProvider.on("connect", async () => {
+        //console.info(ethereumProvider.accounts)
+        provider = new ethers.BrowserProvider(ethereumProvider)
+
+        await signerConnected()
+        await createContracts()
+
+        setDisplayMode('find-node')
+      });
+    }
+
+    ethereumProvider.connect()
+  }
+  catch (e) {
+    btnConnectWalletConnect.classList.remove('button--loading')
+    transactionStatus.innerText = "There was a problem connecting to your wallet. Please try again."
+    transactionStatus.classList.remove('hidden')
+    console.error(e)
+  }
+})
+walletSection.appendChild(btnConnectWalletConnect)
 
 
 // Create our check node address button
@@ -161,24 +235,27 @@ const signerEns = signerLabel.appendChild(document.createElement('span'))
 signerEns.classList.add('ens')
 
 async function signerConnected() {
-  signerInput.value = ''
-  signerEns.innerText = ''
-  signer = await provider.getSigner().catch((err) => {
-    throw err
-  })
+  if(provider) {
+    signerInput.value = ''
+    signerEns.innerText = ''
+    signer = await provider.getSigner().catch((err) => {
+      throw err
+    })
 
-  if (signer) {
-    signerInput.value = await signer.getAddress()
-    if (signerInput.value) {
-      const foundName = await provider.lookupAddress(signerInput.value)
-      if (foundName)
-        signerEns.innerText = foundName
+    if (signer) {
+      signerInput.value = await signer.getAddress()
+      if (signerInput.value) {
+        const foundName = await provider.lookupAddress(signerInput.value)
+        if (foundName)
+          signerEns.innerText = foundName
+      }
     }
   }
 }
 
 const checkAccounts = async () => {
   console.log("Checking connected accounts.")
+
   const accounts = await window.ethereum.send('eth_accounts').catch((err) => {
     //Error
     if (err.code === 4001) { // EIP 1193 userRejectedRequest error
@@ -203,10 +280,12 @@ const checkAccounts = async () => {
 }
 
 function setDisplayMode(mode) {
+  console.log("Setting display mode to: " + mode)
   // Sets the different stages of the UI.
   switch(mode) {
     case 'not-connected':
       btnConnectWallet.classList.remove('hidden')
+      btnConnectWalletConnect.classList.remove('hidden')
       btnFindNode.classList.add('hidden')
 
       // Hide the wallet section
@@ -219,6 +298,7 @@ function setDisplayMode(mode) {
       break
     case 'find-node':
       btnConnectWallet.classList.add('hidden')
+      btnConnectWalletConnect.classList.add('hidden')
       btnFindNode.classList.remove('hidden')
       walletSection.classList.add('section-active')
       createSection.classList.remove('section-active')
@@ -226,6 +306,7 @@ function setDisplayMode(mode) {
       break
     case 'connected':
       btnConnectWallet.classList.add('hidden')
+      btnConnectWalletConnect.classList.add('hidden')
       createSection.classList.add('section-active')
       changeSection.classList.add('section-active')
       break
@@ -263,9 +344,6 @@ deployButton.type = 'button'
 deployButton.value = 'Deploy Contract'
 deployButton.disabled = true
 
-
-// Check for connected accounts.
-checkAccounts()
 
 function updateDeployButton() {
   const addresses = Array.from(
@@ -664,3 +742,7 @@ body.appendChild(transactionStatus)
 body.appendChild(walletSection)
 body.appendChild(changeSection)
 body.appendChild(createSection)
+
+// Check for connected accounts. @TODO: need to persist connections.
+//checkAccounts()
+setDisplayMode('not-connected')

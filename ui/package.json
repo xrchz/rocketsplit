@@ -5,5 +5,17 @@
   "license": "GPL-3.0-or-later",
   "repository": "github:xrchz/rocketsplit",
   "description": "UI for RocketSplit rewards splitter contract",
-  "dependencies": { "ethers": "^6" }
+  "scripts": {
+    "start": "npx parcel index.html",
+    "build": "rm -Rf dist/ && npx parcel build index.html"
+  },
+  "dependencies": {
+    "@walletconnect/ethereum-provider": "^2.8.4",
+    "@walletconnect/modal": "^2.5.4",
+    "ethers": "^6"
+  },
+  "devDependencies": {
+    "parcel": "^2.9.3",
+    "process": "^0.11.10"
+  }
 }

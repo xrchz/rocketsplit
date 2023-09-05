@@ -1,0 +1,100 @@
+.app {
+  text-align: center;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  background-color: #201b23;
+  color: white;
+  align-items: center;
+  padding: 10px;
+}
+
+.branding {
+  display: flex;
+  align-items: center;
+}
+.branding img {
+  width: 110px;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+}
+
+.rocket-panel {
+  display: flex;
+  flex-direction: column;
+  width: 60%;
+  text-align: left;
+  border-bottom: 3px solid #cccccc;
+  margin-bottom: 10px;
+  padding-bottom: 30px;
+}
+
+.rocket-panel p {
+  margin: 0px;
+  margin-bottom: 5px;
+}
+
+.rocket-inputs {
+    text-align: left;
+    border: 1px solid #cccc;
+    padding: 20px;
+    margin-bottom: 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    grid-gap: 60px;
+}
+
+.fee-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+input, button {
+  padding: 10px;
+  margin: 5px 0px;
+}
+
+button {
+  width: 100%;
+}
+
+.wallet-list {
+  margin: 10px 0;
+  padding: 0;
+}
+
+.btn-action {
+  display: block;
+  color: black;
+  padding: 10px;
+  text-align: center;
+  text-decoration: none;
+  border: 1px solid #201b23;
+}
+
+.btn-action:hover {
+  background-color: #201b23;
+  color: white;
+}
+
+.split-listitem {
+  display: flex;
+  flex-direction: column;
+}
+
+.not-rocketsplit {
+  color: red;
+  padding: 10px;
+  border: 1px solid red;
+}

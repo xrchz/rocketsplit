@@ -1,0 +1,107 @@
+import './App.css';
+import '@rainbow-me/rainbowkit/styles.css';
+import 'react-toastify/dist/ReactToastify.css';
+
+import { useState } from 'react';
+import {
+  getDefaultWallets,
+  RainbowKitProvider,
+  ConnectButton,
+  darkTheme,
+} from '@rainbow-me/rainbowkit';
+import { configureChains, createConfig, WagmiConfig } from 'wagmi';
+import {
+  mainnet,
+  goerli,
+  localhost
+} from 'wagmi/chains';
+import { alchemyProvider } from 'wagmi/providers/alchemy';
+import { publicProvider } from 'wagmi/providers/public';
+
+import NodeFinder from './components/NodeFinder';
+import WithdrawalDisplay from './components/WithdrawalDisplay';
+import MarriageCreator from './components/MarriageCreator';
+
+import { ToastContainer, toast } from 'react-toastify';
+import MarriageList from './components/MarriageList';
+
+
+
+// Add a custom chain to chains for http://127.0.0.1:8545
+const foundary = {
+  ...localhost,
+  name: 'Foundary',
+  id: 31337,
+}
+
+const { chains, publicClient } = configureChains(
+  [mainnet, goerli, foundary],
+  [
+    alchemyProvider({ apiKey: process.env.REACT_APP_ALCHEMY_KEY}),
+    publicProvider()
+  ]
+);
+
+const { connectors } = getDefaultWallets({
+  appName: 'RocketSplit',
+  projectId: process.env.REACT_APP_WALLETCONNECT_PROJECTID,
+  chains
+});
+
+const wagmiConfig = createConfig({
+  autoConnect: true,
+  connectors,
+  publicClient
+})
+
+function App() {
+
+  const [withdrawalAddress, setWithdrawalAddress] = useState(null);
+  const [pendingWithdrawalAddress, setPendingWithdrawalAddress] = useState(null);
+  const [nodeAddress, setNodeAddress] = useState(null);
+  const [splitAddress, setSplitAddress] = useState(null);
+
+  return (
+     <WagmiConfig config={wagmiConfig}>
+        <RainbowKitProvider chains={chains}
+          theme={darkTheme({
+            borderRadius: "none",
+            overlayBlur: "small",
+            accentColor: "#f94a3a",
+          })}>
+                <div className="app">
+                    <header className="header">
+                      <div className="branding">
+                        {/* <img src="/rocketsplit.png" alt="RocketSplit" /> */}
+                        <h2>RocketSplit</h2>
+                      </div>
+                      <ConnectButton />
+                    </header>
+                    <div className="content">
+                      <NodeFinder setWithdrawalAddress={setWithdrawalAddress}
+                        setNodeAddress={setNodeAddress}
+                        nodeAddress={nodeAddress}
+                        pendingWithdrawalAddress={pendingWithdrawalAddress}
+                        setPendingWithdrawalAddress={setPendingWithdrawalAddress}
+                        toast={toast}/>
+                      <WithdrawalDisplay withdrawalAddress={withdrawalAddress} />
+                      {splitAddress && !pendingWithdrawalAddress && 
+                        <MarriageList nodeAddress={nodeAddress} 
+                          splitAddress={splitAddress}
+                          setPendingWithdrawalAddress={setPendingWithdrawalAddress}
+                          setWithdrawalAddress={setWithdrawalAddress}/>
+                      }
+                      {!splitAddress &&
+                        <MarriageCreator withdrawalAddress={withdrawalAddress} 
+                          nodeAddress={nodeAddress} 
+                          setSplitAddress={setSplitAddress}/>
+                      }
+                    </div>
+                    <ToastContainer position="bottom-right" theme="dark" />
+              </div>
+        </RainbowKitProvider>
+      </WagmiConfig>
+  );
+}
+
+export default App;

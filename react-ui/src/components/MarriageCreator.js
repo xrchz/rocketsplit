@@ -1,7 +1,7 @@
 import RocketSplitFactoryAddress from '../abi/RocketSplitFactory.json'
 import RocketSplitABI from '../abi/RocketSplit.json'
 import { useEffect, useState } from 'react';
-import { useContractEvent, useContractWrite, usePrepareContractWrite, useWaitForTransaction } from 'wagmi';
+import { useContractWrite, usePrepareContractWrite, useWaitForTransaction } from 'wagmi';
 import { decodeEventLog } from 'viem';
 
 const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
@@ -21,8 +21,8 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
         address: RocketSplitFactoryAddress,
         abi: RocketSplitABI.abi,
         functionName: "deploy",
+        enabled: ethOwner && rplOwner && ethNumerator && ethDenominator && rplNumerator && rplDenominator,
         args: [nodeAddress, ethOwner, rplOwner, [parseInt(ethNumerator), parseInt(ethDenominator)], [parseInt(rplNumerator), parseInt(rplDenominator)]],
-        enabled: false
     });
 
     const { write, data } = useContractWrite(config);

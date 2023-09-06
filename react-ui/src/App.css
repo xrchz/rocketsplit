@@ -12,6 +12,13 @@
   padding: 10px;
 }
 
+.promo {
+  border: 1px solid red;
+  padding: 10px;
+  font-size: 1em;
+  font-weight: bold;
+}
+
 .branding {
   display: flex;
   align-items: center;
@@ -97,4 +104,25 @@ button {
   color: red;
   padding: 10px;
   border: 1px solid red;
+}
+
+.wallet-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-gap: 10px;
+  margin: 10px 0;
+  padding: 0px;
+}
+
+.wallet-actions li {
+  display: block;
+  list-style: none;
+  padding: 10px;
+  border: 1px solid #201b23;
+  cursor: pointer;
+}
+
+.wallet-actions li:hover {
+  background-color: #201b23;
+  color: white;
 }

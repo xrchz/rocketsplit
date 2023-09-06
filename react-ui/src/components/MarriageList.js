@@ -1,10 +1,4 @@
 // A list of marriages created.
-
-import RocketSplitFactoryAddress from '../abi/RocketSplitFactory.json'
-import RocketsplitABI from '../abi/RocketSplit.json'
-import { useAccount, usePublicClient } from 'wagmi';
-import { useEffect, useState } from 'react';
-import { decodeEventLog, encodeEventTopics, parseAbi, parseAbiItem } from 'viem';
 import MarriageListItem from './MarriageListItem';
 
 const MarriageList = ({nodeAddress, splitAddress, setPendingWithdrawalAddress }) => {

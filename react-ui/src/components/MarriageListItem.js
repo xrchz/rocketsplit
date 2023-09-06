@@ -32,7 +32,7 @@ const MarriageListItem = ({ nodeAddress, splitAddress, setPendingWithdrawalAddre
     return (
         <li className="split-listitem">
             <strong>{splitAddress}</strong>
-            <a className="btn-action" href="#" onClick={() => setWithdrawalAddress?.()}>Set Withdrawal Address</a>
+            <span className="btn-action" onClick={() => setWithdrawalAddress?.()}>Set Withdrawal Address</span>
         </li>
     )
 }

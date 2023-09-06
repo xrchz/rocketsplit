@@ -88,6 +88,7 @@ button {
   text-align: center;
   text-decoration: none;
   border: 1px solid #201b23;
+  cursor: pointer;
 }
 
 .btn-action:hover {

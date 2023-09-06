@@ -27,7 +27,7 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
 
     const { write, data } = useContractWrite(config);
 
-    const { isLoading, isSuccess, data: receipt } = useWaitForTransaction({
+    const { isSuccess, data: receipt } = useWaitForTransaction({
         hash: data?.hash,
     });
 

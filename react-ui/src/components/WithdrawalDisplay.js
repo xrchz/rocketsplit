@@ -1,4 +1,4 @@
-import { useContractRead } from 'wagmi'
+import { useContractRead, useContractWrite, usePrepareContractWrite } from 'wagmi'
 import RocketSplitABI from '../abi/RocketSplit.json'
 import RocketStorageAddress from '../abi/RocketStorageAddress.json'
 import RocketStorage from '../abi/RocketStorage.json'
@@ -7,6 +7,8 @@ import { keccak256, toHex } from 'viem';
 
 const WithdrawalDisplay = ({withdrawalAddress}) => {
     const [isRocketSplit, setIsRocketSplit] = useState(false);
+    const [isRplOwner, setIsRplOwner] = useState(true);
+    const [isEthOwner, setIsEthOwner] = useState(true);
 
     // // Check for pending withdrawal address change.
     // useContractRead({
@@ -46,6 +48,32 @@ const WithdrawalDisplay = ({withdrawalAddress}) => {
         }
     })
 
+    const { config: withdrawRPLConfig } = usePrepareContractWrite({
+        address: withdrawalAddress,
+        abi: RocketSplitABI.abi,
+        functionName: "withdrawRPL",
+        onError: (error) => {
+            if(error.shortMessage.includes("auth")){
+                setIsRplOwner(false);
+            }
+        },
+    });
+
+    const { write: withdrawRPL } = useContractWrite(withdrawRPLConfig);
+
+    const { config: withdrawETHConfig } = usePrepareContractWrite({
+        address: withdrawalAddress,
+        abi: RocketSplitABI.abi,
+        functionName: "withdrawETH",
+        onError: (error) => {
+            if(error.shortMessage.includes("auth")){
+                setIsEthOwner(false);
+            }
+        },
+    });
+
+    const { write: withdrawETH } = useContractWrite(withdrawETHConfig);
+
     if(!withdrawalAddress){
         return null;
     }
@@ -54,7 +82,19 @@ const WithdrawalDisplay = ({withdrawalAddress}) => {
             <h2>Current Withdrawal Address:</h2>
             <p>{withdrawalAddress}</p>
             {!isRocketSplit && <p className="not-rocketsplit">Not a RocketSplit Address</p>}
-            {isRocketSplit && <p className="is-rocketsplit">A RocketSplit Address</p>}
+            {isRocketSplit &&
+                <>
+                    <p className="is-rocketsplit">A RocketSplit Address</p>
+                    <ul className="wallet-actions">
+                        {isEthOwner && <li onClick={() =>{withdrawETH?.()}}>Withdrawal ETH</li>}
+                        {isRplOwner && <li onClick={() => {withdrawRPL?.()}}>Withdrawal RPL</li>}
+                        <li>Stake RPL (Coming soon)</li>
+                        <li>Change ENS Name (Coming soon)</li>
+                        <li>Change Withdrawal Address (Coming soon)</li>
+                    </ul>
+                </>
+            }
+
         </div>
     )
 

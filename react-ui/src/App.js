@@ -78,13 +78,16 @@ function App() {
                       <ConnectButton />
                     </header>
                     <div className="content">
+                      <p className="promo">
+                        This project is currently under vote with the GMC. We are activlty developing this and seeking your support. Please vote here.
+                      </p>
                       <NodeFinder setWithdrawalAddress={setWithdrawalAddress}
                         setNodeAddress={setNodeAddress}
                         nodeAddress={nodeAddress}
                         pendingWithdrawalAddress={pendingWithdrawalAddress}
                         setPendingWithdrawalAddress={setPendingWithdrawalAddress}
                         toast={toast}/>
-                      <WithdrawalDisplay withdrawalAddress={withdrawalAddress} />
+                      {withdrawalAddress && <WithdrawalDisplay withdrawalAddress={withdrawalAddress} />}
                       {splitAddress && !pendingWithdrawalAddress && 
                         <MarriageList nodeAddress={nodeAddress} 
                           splitAddress={splitAddress}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { keccak256 } from "viem";
 import RocketsplitABI from "../abi/RocketSplit.json";
-import { useChainId, useContractRead, useContractWrite, useNetwork, usePrepareContractWrite, usePublicClient, useWaitForTransaction } from "wagmi";
+import { useContractRead, useContractWrite, usePrepareContractWrite, usePublicClient, useWaitForTransaction } from "wagmi";
 import { normalize } from "viem/ens";
 
 const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, pendingWithdrawalAddress, setPendingWithdrawalAddress}) => {
@@ -11,14 +11,14 @@ const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, p
     const [ ensName, setEnsName ] = useState(null);
 
     const emptyAddress = `0x${'0'.repeat(40)}`
+    // eslint-disable-next-line no-useless-escape
     const addressPattern = '^(?:0x[0-9a-fA-F]{40})|(?:.{3,}\.eth)$'
     const addressPlaceholder = '0x... or ENS name'
 
     const publicClient = usePublicClient();
-    const { chain } = useNetwork();
 
     const storageContractConfig = {
-        address: (chain.id === 1 || chain.id === 31337) ? "0x1d8f8f00cfa6758d7bE78336684788Fb0ee0Fa46" : "0xd8Cd47263414aFEca62d6e2a3917d6600abDceB3",
+        address: process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS,
         abi: [{"inputs":[{"internalType":"bytes32","name":"_key","type":"bytes32"}],"name":"getAddress","outputs":[{"internalType":"address","name":"r","type":"address"}],"stateMutability":"view","type":"function"}]   
     };
 
@@ -39,7 +39,7 @@ const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, p
     })
 
     // Only executes when the address and functionName are set.
-    const {refetch: nodeManager} = useContractRead({
+    useContractRead({
         ...nodeManagerConfig,
         address: nodeManagerAddress,
         functionName: nodeManagerFunction,
@@ -63,7 +63,7 @@ const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, p
                 case "getNodePendingWithdrawalAddress":
                     console.log("Node pending withdrawal address: " + result);
 
-                    if(result != emptyAddress) {
+                    if(result !== emptyAddress) {
                         setPendingWithdrawalAddress(result);
                     }
                     break;
@@ -94,7 +94,7 @@ const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, p
     });
 
     const { write: confirmWithdrawalAddress, data } = useContractWrite(config);
-    const { data: receipt, isSuccess } = useWaitForTransaction({
+    const { isSuccess } = useWaitForTransaction({
         hash: data?.hash,
     });
 
@@ -118,6 +118,7 @@ const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, p
             setNodeAddress(lookupAddress);
         }
         else {
+            console.log("Falling back to address.")
             setNodeAddress(nodeAddress);
         }
 
@@ -140,7 +141,7 @@ const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, p
             toast("Withdrawal address updated successfully.");
         }
     }
-    , [isSuccess]);
+    , [isSuccess, pendingWithdrawalAddress, setPendingWithdrawalAddress, setWithdrawalAddress, toast]);
 
     return(
         <div className="rocket-panel">
@@ -148,7 +149,7 @@ const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, p
             <input placeholder={addressPlaceholder} value={nodeAddress} onChange={(e) => { setNodeAddress(e.target.value);  setNodeManagerFunction(null)}}></input>
             <span>{ensName}</span>
             <button onClick={() => lookupWithdrawal()}>Submit</button>
-            {pendingWithdrawalAddress && <><p>Pending Withdrawal Address: {pendingWithdrawalAddress}</p><a className="btn-action" href='#' onClick = {() => { confirmWithdrawalAddress?.() }}>Confirm Change</a></>}
+            {pendingWithdrawalAddress && <><p>Pending Withdrawal Address: {pendingWithdrawalAddress}</p><span className="btn-action" onClick = {() => { confirmWithdrawalAddress?.() }}>Confirm Change</span></>}
         </div>
     )
 }

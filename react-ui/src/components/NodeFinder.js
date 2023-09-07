@@ -20,7 +20,7 @@ const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, p
     const { chain } = useNetwork();
 
     const storageContractConfig = {
-        address: chain.id === 5 ? process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_GOERLI : process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_MAINNET,
+        address: chain?.id === 5 ? process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_GOERLI : process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_MAINNET,
         abi: [{"inputs":[{"internalType":"bytes32","name":"_key","type":"bytes32"}],"name":"getAddress","outputs":[{"internalType":"address","name":"r","type":"address"}],"stateMutability":"view","type":"function"}]   
     };
 
@@ -154,7 +154,7 @@ const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, p
             <h2>Enter Rocketpool Node Address:</h2>
             <input placeholder={addressPlaceholder} value={nodeAddress} onChange={(e) => { setNodeAddress(e.target.value);  setNodeManagerFunction(null)}}></input>
             <span>{ensName}</span>
-            <button disabled={!address} onClick={() => lookupWithdrawal()}>Submit</button>
+            <button disabled={!address || !nodeAddress} onClick={() => lookupWithdrawal()}>Submit</button>
             {address ? <></> : <>Connect you wallet to get started.</>}
             {pendingWithdrawalAddress && <><p>Pending Withdrawal Address: {pendingWithdrawalAddress}</p><span className="btn-action" onClick = {() => { confirmWithdrawalAddress?.() }}>Confirm Change</span></>}
         </div>

@@ -86,6 +86,7 @@ function App() {
                         nodeAddress={nodeAddress}
                         pendingWithdrawalAddress={pendingWithdrawalAddress}
                         setPendingWithdrawalAddress={setPendingWithdrawalAddress}
+                        setSplitAddress={setSplitAddress}
                         toast={toast}/>
                       {withdrawalAddress && <WithdrawalDisplay withdrawalAddress={withdrawalAddress} />}
                       {splitAddress && !pendingWithdrawalAddress && 

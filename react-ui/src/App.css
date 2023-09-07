@@ -1,3 +1,7 @@
+body {
+  background: rgb(239, 236, 236);
+}
+
 .app {
   text-align: center;
 }
@@ -40,9 +44,23 @@
   flex-direction: column;
   width: 60%;
   text-align: left;
-  border-bottom: 3px solid #cccccc;
+  border: 1px solid #cccccc;
+  background-color: white;
   margin-bottom: 10px;
-  padding-bottom: 30px;
+  padding: 30px;
+  border-radius: 5px;
+
+  /* Fade in the panel */
+  animation: fadein .5s;
+}
+
+@keyframes fadein {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .rocket-panel p {
@@ -85,6 +103,7 @@ button {
   display: block;
   color: black;
   padding: 10px;
+  margin-top: 20px;
   text-align: center;
   text-decoration: none;
   border: 1px solid #201b23;
@@ -105,6 +124,12 @@ button {
   color: red;
   padding: 10px;
   border: 1px solid red;
+}
+
+.is-rocketsplit {
+  color: #32a700;
+  padding: 10px;
+  border: 1px solid #32a700;
 }
 
 .wallet-actions {

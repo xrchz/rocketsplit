@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { keccak256 } from "viem";
 import RocketsplitABI from "../abi/RocketSplit.json";
-import { useContractRead, useContractWrite, usePrepareContractWrite, usePublicClient, useWaitForTransaction } from "wagmi";
+import { useAccount, useContractRead, useContractWrite, useNetwork, usePrepareContractWrite, usePublicClient, useWaitForTransaction } from "wagmi";
 import { normalize } from "viem/ens";
 
-const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, pendingWithdrawalAddress, setPendingWithdrawalAddress}) => {
+const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, pendingWithdrawalAddress, setPendingWithdrawalAddress, setSplitAddress}) => {
 
     const [ nodeManagerAddress, setNodeManagerAddress ] = useState(null);
     const [ nodeManagerFunction, setNodeManagerFunction ] = useState(null);
@@ -16,9 +16,11 @@ const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, p
     const addressPlaceholder = '0x... or ENS name'
 
     const publicClient = usePublicClient();
+    const { address } = useAccount();
+    const { chain } = useNetwork();
 
     const storageContractConfig = {
-        address: process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS,
+        address: chain.id === 5 ? process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_GOERLI : process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_MAINNET,
         abi: [{"inputs":[{"internalType":"bytes32","name":"_key","type":"bytes32"}],"name":"getAddress","outputs":[{"internalType":"address","name":"r","type":"address"}],"stateMutability":"view","type":"function"}]   
     };
 
@@ -108,7 +110,7 @@ const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, p
         const lookupAddress = await publicClient.getEnsAddress({
             name: normalize(nodeAddress),
         }).catch((error) => {
-            console.log(error);
+            //console.log(error);
             setEnsName(null);
         });
 
@@ -132,23 +134,28 @@ const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, p
 
         // Lets check up on the node.
         setNodeManagerFunction("getNodeExists");
-        //nodeManager?.();
     }
+
     useEffect(() => {
         if(isSuccess) {
+            console.log("Withdrawal address updated successfully.");
+            console.log(pendingWithdrawalAddress);
             setWithdrawalAddress(pendingWithdrawalAddress);
             setPendingWithdrawalAddress(null);
+            setSplitAddress(null);
             toast("Withdrawal address updated successfully.");
         }
     }
-    , [isSuccess, pendingWithdrawalAddress, setPendingWithdrawalAddress, setWithdrawalAddress, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    , [isSuccess]);
 
     return(
         <div className="rocket-panel">
             <h2>Enter Rocketpool Node Address:</h2>
             <input placeholder={addressPlaceholder} value={nodeAddress} onChange={(e) => { setNodeAddress(e.target.value);  setNodeManagerFunction(null)}}></input>
             <span>{ensName}</span>
-            <button onClick={() => lookupWithdrawal()}>Submit</button>
+            <button disabled={!address} onClick={() => lookupWithdrawal()}>Submit</button>
+            {address ? <></> : <>Connect you wallet to get started.</>}
             {pendingWithdrawalAddress && <><p>Pending Withdrawal Address: {pendingWithdrawalAddress}</p><span className="btn-action" onClick = {() => { confirmWithdrawalAddress?.() }}>Confirm Change</span></>}
         </div>
     )

@@ -84,7 +84,7 @@ const WithdrawalDisplay = ({withdrawalAddress}) => {
             {!isRocketSplit && <p className="not-rocketsplit">Not a RocketSplit Address</p>}
             {isRocketSplit &&
                 <>
-                    <p className="is-rocketsplit">A RocketSplit Address</p>
+                    <p className="is-rocketsplit">🚀 A RocketSplit Address</p>
                     <ul className="wallet-actions">
                         {isEthOwner && <li onClick={() =>{withdrawETH?.()}}>Withdrawal ETH</li>}
                         {isRplOwner && <li onClick={() => {withdrawRPL?.()}}>Withdrawal RPL</li>}

@@ -1,7 +1,6 @@
-import RocketSplitFactoryAddress from '../abi/RocketSplitFactory.json'
 import RocketSplitABI from '../abi/RocketSplit.json'
 import { useEffect, useState } from 'react';
-import { useContractWrite, usePrepareContractWrite, useWaitForTransaction } from 'wagmi';
+import { useContractWrite, useNetwork, usePrepareContractWrite, useWaitForTransaction } from 'wagmi';
 import { decodeEventLog } from 'viem';
 
 const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
@@ -16,9 +15,11 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
     const [rplDenominator, setRplDenominator] = useState(100);
     const [rplFee, setRplFee] = useState(0);
 
+    const { chain } = useNetwork();
+
     // Setup the contract config.
     const { config } = usePrepareContractWrite({
-        address: RocketSplitFactoryAddress,
+        address: chain.id === 5 ? process.env.REACT_APP_ROCKETSPLIT_FACTORY_ADDRESS_GOERLI : process.env.REACT_APP_ROCKETSPLIT_FACTORY_ADDRESS_MAINNET,
         abi: RocketSplitABI.abi,
         functionName: "deploy",
         enabled: ethOwner && rplOwner && ethNumerator && ethDenominator && rplNumerator && rplDenominator,
@@ -34,9 +35,8 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
     const createMarriage = () => {
         // Let's create a marriage contract.
         console.log("Creating marriage contract.");
-        console.log(write);
-        write?.();
 
+        write?.();
     }
 
     useEffect(() => {
@@ -83,7 +83,7 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
                     </div>
                     <div className="fee-inputs">
                         <label htmlFor="eth-owner">ETH Owner Address:</label>
-                        <input className="address-input" type="text" id="eth-owner" name="eth-owner" onChange={(e) => { setEthOwner(e.target.value); }}/>
+                        <input required className="address-input" type="text" id="eth-owner" name="eth-owner" onChange={(e) => { setEthOwner(e.target.value); }}/>
                         <label htmlFor="eth-numerator">ETH Numerator</label>
                         <input type="number" id="eth-numerator" name="eth-numerator" onChange={(e) => { setEthNumerator(e.target.value); }} />
                         <label htmlFor="eth-denominator">ETH Demoninator</label>
@@ -104,7 +104,7 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
                         <input type="number" id="rpl-denominator" name="rpl-denominator" placeholder="100" min="1" onChange={(e) => { setRplDenominator(e.target.value); }} />
                     </div>
                 </div>
-                <button onClick={() => createMarriage()}>Create Marriage</button>
+                <button disabled={!ethOwner || !rplOwner || !ethNumerator || !ethDenominator || !rplNumerator || !rplDenominator} onClick={() => createMarriage()}>Create Marriage</button>
                 {isSuccess && <p>Success!</p>}
             </div>
         </div>

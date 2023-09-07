@@ -32,7 +32,7 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
 
     // Setup the contract config.
     const { config } = usePrepareContractWrite({
-        address: chain.id === 5 ? process.env.REACT_APP_ROCKETSPLIT_FACTORY_ADDRESS_GOERLI : process.env.REACT_APP_ROCKETSPLIT_FACTORY_ADDRESS_MAINNET,
+        address: chain?.id === 5 ? process.env.REACT_APP_ROCKETSPLIT_FACTORY_ADDRESS_GOERLI : process.env.REACT_APP_ROCKETSPLIT_FACTORY_ADDRESS_MAINNET,
         abi: RocketSplitABI.abi,
         functionName: "deploy",
         enabled: ethOwner && rplOwner && ethNumerator && ethDenominator && rplNumerator && rplDenominator,

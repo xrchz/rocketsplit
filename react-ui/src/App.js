@@ -79,7 +79,7 @@ function App() {
                     </header>
                     <div className="content">
                       <p className="promo">
-                        This project is currently under vote with the GMC. We are activlty developing this and seeking your support. Please vote here.
+                        This project is currently under vote with the GMC. We are actively developing this and seeking your support. <a href="https://vote.rocketpool.net/#/proposal/0x1f51dfd82b0e60d7a3b974c819f613ef035d35994293821b9b30db62872b1cc2">Please vote here.</a>
                       </p>
                       <NodeFinder setWithdrawalAddress={setWithdrawalAddress}
                         setNodeAddress={setNodeAddress}

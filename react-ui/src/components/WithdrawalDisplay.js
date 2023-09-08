@@ -1,4 +1,4 @@
-import { useContractRead, useContractWrite, usePrepareContractWrite } from 'wagmi'
+import { useBalance, useContractRead, useContractWrite, useNetwork, usePrepareContractWrite } from 'wagmi'
 import RocketSplitABI from '../abi/RocketSplit.json'
 import RocketStorageAddress from '../abi/RocketStorageAddress.json'
 import RocketStorage from '../abi/RocketStorage.json'
@@ -9,6 +9,8 @@ const WithdrawalDisplay = ({withdrawalAddress}) => {
     const [isRocketSplit, setIsRocketSplit] = useState(false);
     const [isRplOwner, setIsRplOwner] = useState(true);
     const [isEthOwner, setIsEthOwner] = useState(true);
+
+    const { chain } = useNetwork();
 
     // // Check for pending withdrawal address change.
     // useContractRead({
@@ -74,6 +76,15 @@ const WithdrawalDisplay = ({withdrawalAddress}) => {
 
     const { write: withdrawETH } = useContractWrite(withdrawETHConfig);
 
+    const { data: ethBalance } = useBalance({
+        address: withdrawalAddress,
+    });
+
+    const { data: rplBalance } = useBalance({
+        address: withdrawalAddress,
+        token: chain?.id === 5 ? "0x5e932688e81a182e3de211db6544f98b8e4f89c7" : "0xD33526068D116cE69F19A9ee46F0bd304F21A51f",
+    });
+
     if(!withdrawalAddress){
         return null;
     }
@@ -81,12 +92,14 @@ const WithdrawalDisplay = ({withdrawalAddress}) => {
         <div className="rocket-panel">
             <h2>Current Withdrawal Address:</h2>
             <p>{withdrawalAddress}</p>
+            <p>ETH Balance: <strong>{ethBalance.formatted} {ethBalance.symbol}</strong></p>
+            <p>RPL Balance: <strong>{rplBalance.formatted} {rplBalance.symbol}</strong></p>
             {!isRocketSplit && <p className="not-rocketsplit">Not a RocketSplit Address</p>}
             {isRocketSplit &&
                 <>
                     <p className="is-rocketsplit">🚀 A RocketSplit Address</p>
                     <ul className="wallet-actions">
-                        {isEthOwner && <li onClick={() =>{withdrawETH?.()}}>Withdrawal ETH</li>}
+                        {isEthOwner && <li onClick={() =>{withdrawETH?.();}}>Withdrawal ETH</li>}
                         {isRplOwner && <li onClick={() => {withdrawRPL?.()}}>Withdrawal RPL</li>}
                         <li>Stake RPL (Coming soon)</li>
                         <li>Change ENS Name (Coming soon)</li>

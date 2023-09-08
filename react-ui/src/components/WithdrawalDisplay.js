@@ -92,8 +92,8 @@ const WithdrawalDisplay = ({withdrawalAddress}) => {
         <div className="rocket-panel">
             <h2>Current Withdrawal Address:</h2>
             <p>{withdrawalAddress}</p>
-            <p>ETH Balance: <strong>{ethBalance.formatted} {ethBalance.symbol}</strong></p>
-            {rplBalance?.formatted && <p>RPL Balance: <strong>{rplBalance.formatted} {rplBalance.symbol}</strong></p>}
+            <p>ETH Balance: <strong>{ethBalance?.formatted} {ethBalance?.symbol}</strong></p>
+            {rplBalance?.formatted && <p>RPL Balance: <strong>{rplBalance?.formatted} {rplBalance?.symbol}</strong></p>}
             {!isRocketSplit && <p className="not-rocketsplit">Not a RocketSplit Address</p>}
             {isRocketSplit &&
                 <>

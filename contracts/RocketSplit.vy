@@ -56,10 +56,10 @@ def __default__():
   pass
 
 event DeployRocketSplit:
-  self: indexed(address)
+  self: address
   node: indexed(address)
-  ETHOwner: address
-  RPLOwner: address
+  ETHOwner: indexed(address)
+  RPLOwner: indexed(address)
   ETHFee: Fee
   RPLFee: Fee
 

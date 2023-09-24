@@ -80,6 +80,14 @@ body {
     grid-gap: 60px;
 }
 
+.rocket-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background-color: #d4d1d1;
+  padding: 20px;
+  border: 1px solid #e8e6e6;
+}
+
 .fee-inputs {
   display: flex;
   flex-direction: column;
@@ -199,4 +207,10 @@ input[type="range"]::-webkit-slider-thumb:active {
   transition: box-shadow 350ms cubic-bezier(0.4, 0, 0.2, 1) 0ms,
     left 350ms cubic-bezier(0.4, 0, 0.2, 1) 0ms,
     bottom 350ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+}
+
+.ens-label {
+  margin-top: -12px;
+  font-size: 1em;
+  margin-bottom: 10px;
 }

@@ -9,6 +9,8 @@ const WithdrawalDisplay = ({withdrawalAddress}) => {
     const [isRocketSplit, setIsRocketSplit] = useState(false);
     const [isRplOwner, setIsRplOwner] = useState(true);
     const [isEthOwner, setIsEthOwner] = useState(true);
+    const [ethFee, setEthFee] = useState(null);
+    const [rplFee, setRplFee] = useState(null);
 
     const { chain } = useNetwork();
 
@@ -49,6 +51,35 @@ const WithdrawalDisplay = ({withdrawalAddress}) => {
             console.log("Rocketpool node manager: " + result);
         }
     })
+
+    // Read the marriage contracts fees.
+    useContractRead({
+        address: withdrawalAddress,
+        abi: RocketSplitABI.abi,
+        functionName: "ETHFee",
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => console.log("Error: " + error),
+        onSuccess: (result) => {
+            console.log("ETH Fee");
+            console.log(result);
+            setEthFee(result.numerator / result.denominator + '%');
+        }
+    })
+
+    // Read the marriage contracts fees.
+    useContractRead({
+        address: withdrawalAddress,
+        abi: RocketSplitABI.abi,
+        functionName: "RPLFee",
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => console.log("Error: " + error),
+        onSuccess: (result) => {
+            console.log("RPL Fee");
+            console.log(result);
+            setRplFee(result.numerator / result.denominator + '%');
+        }
+    })
+
 
     const { config: withdrawRPLConfig } = usePrepareContractWrite({
         address: withdrawalAddress,
@@ -107,12 +138,16 @@ const WithdrawalDisplay = ({withdrawalAddress}) => {
         <div className="rocket-panel">
             <h2>Current Withdrawal Address:</h2>
             <p>{withdrawalAddress}</p>
-            <p>ETH Balance: <strong>{ethBalance?.formatted} {ethBalance?.symbol}</strong></p>
-            {rplBalance?.formatted && <p>RPL Balance: <strong>{rplBalance?.formatted} {rplBalance?.symbol}</strong></p>}
+            {isRocketSplit && <><p className="is-rocketsplit">🚀 A RocketSplit Address</p></>}
+            <div className="rocket-info-grid">
+                <p>ETH Balance: <strong>{parseFloat(ethBalance?.formatted).toFixed(4)} {ethBalance?.symbol}</strong></p>
+                {rplBalance?.formatted && <p>RPL Balance: <strong>{parseFloat(rplBalance?.formatted).toFixed(4)} {rplBalance?.symbol}</strong></p>}
+                {ethFee && <p>ETH Fee: <strong>{ethFee}</strong></p>}
+                {rplFee && <p>RPL Fee: <strong>{rplFee}</strong></p>}
+            </div>
             {!isRocketSplit && <p className="not-rocketsplit">Not a RocketSplit Address</p>}
             {isRocketSplit &&
                 <>
-                    <p className="is-rocketsplit">🚀 A RocketSplit Address</p>
                     <ul className="wallet-actions">
                         {isRplOwner && <li onClick={() => {withdrawRewards?.();}}>Withdrawal Rewards</li>}
                         {isEthOwner && <li onClick={() =>{withdrawETH?.();}}>Withdrawal ETH</li>}

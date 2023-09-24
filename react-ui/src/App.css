@@ -17,10 +17,11 @@ body {
 }
 
 .promo {
-  border: 1px solid red;
+  border: 1px solid #201b23;
   padding: 10px;
   font-size: 1em;
   font-weight: bold;
+  width: 60%;
 }
 
 .branding {

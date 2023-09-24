@@ -79,7 +79,7 @@ function App() {
                     </header>
                     <div className="content">
                       <p className="promo">
-                        This project is currently under vote with the GMC. We are actively developing this and seeking your support. <a href="https://vote.rocketpool.net/#/proposal/0x1f51dfd82b0e60d7a3b974c819f613ef035d35994293821b9b30db62872b1cc2">Please vote here.</a>
+                        Enter the Rocketpool node address below. You will be able to go the process of creating a marriage contract OR managing the functionality of an already setup marriage withdrawal address.
                       </p>
                       <NodeFinder setWithdrawalAddress={setWithdrawalAddress}
                         setNodeAddress={setNodeAddress}

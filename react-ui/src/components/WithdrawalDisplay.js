@@ -76,6 +76,21 @@ const WithdrawalDisplay = ({withdrawalAddress}) => {
 
     const { write: withdrawETH } = useContractWrite(withdrawETHConfig);
 
+    const { config: withdrawRewardsConfig } = usePrepareContractWrite({
+        address: withdrawalAddress,
+        abi: RocketSplitABI.abi,
+        functionName: "withdrawRewards",
+        onError: (error) => {
+            if(error.shortMessage.includes("auth")){
+                setIsRplOwner(false);
+            }
+        }
+    })
+
+    const {write: withdrawRewards} = useContractWrite(withdrawRewardsConfig);
+
+
+
     const { data: ethBalance } = useBalance({
         address: withdrawalAddress,
     });
@@ -99,6 +114,7 @@ const WithdrawalDisplay = ({withdrawalAddress}) => {
                 <>
                     <p className="is-rocketsplit">🚀 A RocketSplit Address</p>
                     <ul className="wallet-actions">
+                        {isRplOwner && <li onClick={() => {withdrawRewards?.();}}>Withdrawal Rewards</li>}
                         {isEthOwner && <li onClick={() =>{withdrawETH?.();}}>Withdrawal ETH</li>}
                         {isRplOwner && <li onClick={() => {withdrawRPL?.()}}>Withdrawal RPL</li>}
                         <li>Stake RPL (Coming soon)</li>

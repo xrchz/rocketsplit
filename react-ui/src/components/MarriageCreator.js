@@ -1,7 +1,8 @@
 import RocketSplitABI from '../abi/RocketSplit.json'
 import { useEffect, useState } from 'react';
-import { useContractWrite, useNetwork, usePrepareContractWrite, useWaitForTransaction } from 'wagmi';
+import { useContractWrite, useNetwork, usePrepareContractWrite, usePublicClient, useWaitForTransaction } from 'wagmi';
 import { decodeEventLog } from 'viem';
+import { normalize } from "viem/ens";
 
 const MAX = 10000;
 
@@ -18,6 +19,10 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
     const [rplFee, setRplFee] = useState(0);
 
     const { chain } = useNetwork();
+    const publicClient = usePublicClient();
+
+    const [ethOwnerEnsName, setEthOwnerEnsName] = useState(null);
+    const [rplOwnerEnsName, setRplOwnerEnsName] = useState(null);
 
     const [isRplOpen, setIsRplOpen] = useState(false);
     const toggleRPLAccordion = () => {
@@ -45,9 +50,11 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
         hash: data?.hash,
     });
 
-    const createMarriage = () => {
+    const createMarriage = async () => {
         // Let's create a marriage contract.
         console.log("Creating marriage contract.");
+        await setETHownerENS();
+        await setRPLownerENS();
 
         write?.();
     }
@@ -66,6 +73,54 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
     }
     , [rplNumerator, rplDenominator]);
 
+    // Set the ETH owner with support for looking up the ENS name if it is one.
+    const setETHownerENS = async () => {
+        console.log("Setting ETH owner ENS name for " + ethOwner);
+
+        // // Lookup ENS name if applicable.
+        const lookupAddress = await publicClient.getEnsAddress({
+            name: normalize(ethOwner),
+        }).catch((error) => {
+            // console.log(error);
+            setEthOwnerEnsName(null);
+        });
+
+        console.log("ENS lookup result: " + lookupAddress)
+
+        if(lookupAddress) {
+            console.log("Setting ENS address for ETH Owner");
+            setEthOwnerEnsName(ethOwner);
+            setEthOwner(lookupAddress);
+        }
+        else {
+            console.log("No ENS used for ETH Owner")
+            setEthOwner(ethOwner);
+        }
+    }
+
+    const setRPLownerENS = async () => {
+        console.log("Setting RPL owner ENS name for " + rplOwner);
+
+        // // Lookup ENS name if applicable.
+        const lookupAddress = await publicClient.getEnsAddress({
+            name: normalize(rplOwner),
+        }).catch((error) => {
+            // console.log(error);
+            setRplOwnerEnsName(null);
+        });
+
+        console.log("ENS lookup result: " + lookupAddress)
+
+        if(lookupAddress) {
+            console.log("Setting ENS address for RPL Owner");
+            setRplOwnerEnsName(rplOwner);
+            setRplOwner(lookupAddress);
+        }
+        else {
+            console.log("No ENS used for RPL Owner")
+            setRplOwner(rplOwner);
+        }
+    }
 
     if(!withdrawalAddress){
         return null;
@@ -96,12 +151,13 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
                     <div className="fee-inputs">
                         <label htmlFor="eth-owner">ETH Owner Address</label>
                         <input required className="address-input" type="text" id="eth-owner" name="eth-owner" onChange={(e) => { setEthOwner(e.target.value); }}/>
+                        <span className="ens-label">{ethOwnerEnsName}</span>
                         <label htmlFor="eth-slider">ETH Owner Fee</label>
                         <input
                             type="range"
                             min="0"
                             max={MAX}
-                            step={1}
+                            step={10}
                             onChange={(e) => setEthNumerator(e.target.value)}
                             value={ethNumerator}
                             name="eth-slider"
@@ -128,12 +184,13 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
                     <div className="fee-inputs">
                         <label htmlFor="rplOwner">RPL Owner Address</label>
                         <input className="address-input" type="text" id="rplOwner" name="rplOwner" onChange={(e) => { setRplOwner(e.target.value); }} />
+                        <span className="ens-label">{rplOwnerEnsName}</span>
                         <label htmlFor="rpl-slider">RPL Owner Fee</label>
                         <input
                             type="range"
                             min="0"
                             max={MAX}
-                            step={1}
+                            step={10}
                             onChange={(e) => setRplNumerator(e.target.value)}
                             value={rplNumerator}
                             name="rpl-slider"

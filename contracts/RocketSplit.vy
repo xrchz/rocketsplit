@@ -1,4 +1,4 @@
-# @version ^0.3.7
+#pragma version ^0.3.0
 
 import RocketSplit as RocketSplitInterface
 
@@ -56,10 +56,10 @@ def __default__():
   pass
 
 event DeployRocketSplit:
-  self: indexed(address)
+  self: address
   node: indexed(address)
-  ETHOwner: address
-  RPLOwner: address
+  ETHOwner: indexed(address)
+  RPLOwner: indexed(address)
   ETHFee: Fee
   RPLFee: Fee
 
@@ -114,7 +114,7 @@ def withdrawETH():
   assert msg.sender == self.ETHOwner, "auth"
   assert self._getRocketNodeStaking().getNodeRPLStake(self.nodeAddress) == 0, "stake"
   assert self.RPLPrincipal == 0, "principal"
-  send(msg.sender, self.balance)
+  send(msg.sender, self.balance, gas=msg.gas)
 
 @internal
 def _calculateFee(_amount: uint256, _fee: Fee) -> uint256:
@@ -135,8 +135,8 @@ def withdrawRewards():
 
   fee = self._calculateFee(self.balance, self.ETHFee)
   if fee != 0:
-    send(self.RPLOwner, fee)
-  send(self.ETHOwner, self.balance)
+    send(self.RPLOwner, fee, gas=msg.gas)
+  send(self.ETHOwner, self.balance, gas=msg.gas)
 
 @external
 def confirmWithdrawalAddress():

@@ -4,6 +4,7 @@ import RocketSplit as RocketSplitInterface
 
 MAX_INTERVALS: constant(uint256) = 128
 MAX_PROOF_LENGTH: constant(uint256) = 32
+MAX_MINIPOOLS: constant(uint256) = 1024
 
 interface RPLInterface:
   def balanceOf(_who: address) -> uint256: view
@@ -26,6 +27,9 @@ interface RocketMerkleDistributorInterface:
             _amountRPL: DynArray[uint256, MAX_INTERVALS],
             _amountETH: DynArray[uint256, MAX_INTERVALS],
             _merkleProof: DynArray[DynArray[bytes32, MAX_PROOF_LENGTH], MAX_INTERVALS]): nonpayable
+
+interface MinipoolInterface:
+  def distributeBalance(_rewardsOnly: bool): nonpayable
 
 interface EnsRevRegInterface:
   def setName(_name: String[256]) -> bytes32: nonpayable
@@ -137,6 +141,15 @@ def claimRewards(_rewardIndex: DynArray[uint256, 128], # TODO: figure out why I 
   rocketMerkleDistributor: RocketMerkleDistributorInterface = RocketMerkleDistributorInterface(rocketStorage.getAddress(rocketMerkleDistributorKey))
   self.allowPaymentsFrom = rocketMerkleDistributor.address
   rocketMerkleDistributor.claim(self.nodeAddress, _rewardIndex, _amountRPL, _amountETH, _merkleProof)
+  self.allowPaymentsFrom = empty(address)
+
+@external
+def distributeMinipoolBalance(_minipool: DynArray[address, 1024]): # TODO: why can't I use MAX_MINIPOOLS?
+  assert msg.sender == self.ETHOwner, "auth" # TODO: should RPL owner also/only be allowed?
+  for minipoolAddress in _minipool:
+    minipool: MinipoolInterface = MinipoolInterface(minipoolAddress)
+    self.allowPaymentsFrom = minipoolAddress
+    minipool.distributeBalance(True)
   self.allowPaymentsFrom = empty(address)
 
 @internal

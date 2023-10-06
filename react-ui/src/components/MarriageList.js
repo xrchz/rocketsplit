@@ -47,6 +47,8 @@ const MarriageList = ({nodeAddress, splitAddress, setPendingWithdrawalAddress })
     //     return null;
     // }
 
+    // @TODO if the current withdrawal address is a rocketsplit address... then we need to call the method on that contract.
+
     return (
         <div className="rocket-panel">
             <h2>Pending Marriage</h2>

@@ -133,10 +133,10 @@ def withdrawETH():
   send(msg.sender, self.balance, gas=msg.gas)
 
 @external
-def claimRewards(_rewardIndex: DynArray[uint256, 128], # TODO: figure out why I can't use MAX_INTERVALS here
+def claimRewards(_rewardIndex: DynArray[uint256, 128], # TODO: MAX_INTERVALS inlined because of https://github.com/vyperlang/vyper/issues/3294
                  _amountRPL: DynArray[uint256, 128],
                  _amountETH: DynArray[uint256, 128],
-                 _merkleProof: DynArray[DynArray[bytes32, 32], 128]): # TODO: and MAX_PROOF_LENGTH here
+                 _merkleProof: DynArray[DynArray[bytes32, 32], 128]): # TODO: MAX_PROOF_LENGTH inlined, same reason as above
   assert msg.sender == self.RPLOwner, "auth" # TODO: should ETH owner also be allowed?
   rocketMerkleDistributor: RocketMerkleDistributorInterface = RocketMerkleDistributorInterface(rocketStorage.getAddress(rocketMerkleDistributorKey))
   self.allowPaymentsFrom = rocketMerkleDistributor.address
@@ -144,7 +144,7 @@ def claimRewards(_rewardIndex: DynArray[uint256, 128], # TODO: figure out why I 
   self.allowPaymentsFrom = empty(address)
 
 @external
-def distributeMinipoolBalance(_minipool: DynArray[address, 1024]): # TODO: why can't I use MAX_MINIPOOLS?
+def distributeMinipoolBalance(_minipool: DynArray[address, 1024]): # TODO: MAX_MINIPOOLS inlined, as above
   assert msg.sender == self.ETHOwner, "auth" # TODO: should RPL owner also/only be allowed?
   for minipoolAddress in _minipool:
     minipool: MinipoolInterface = MinipoolInterface(minipoolAddress)

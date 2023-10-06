@@ -2,6 +2,10 @@
 
 import RocketSplit as RocketSplitInterface
 
+MAX_INTERVALS: constant(uint256) = 128
+MAX_PROOF_LENGTH: constant(uint256) = 32
+MAX_MINIPOOLS: constant(uint256) = 1024
+
 interface RPLInterface:
   def balanceOf(_who: address) -> uint256: view
   def transfer(_to: address, _value: uint256) -> bool: nonpayable
@@ -17,6 +21,16 @@ interface RocketNodeStakingInterface:
   def getNodeRPLStake(_nodeAddress: address) -> uint256: view
   def stakeRPLFor(_nodeAddress: address, _amount: uint256): nonpayable
 
+interface RocketMerkleDistributorInterface:
+  def claim(_nodeAddress: address,
+            _rewardIndex: DynArray[uint256, MAX_INTERVALS],
+            _amountRPL: DynArray[uint256, MAX_INTERVALS],
+            _amountETH: DynArray[uint256, MAX_INTERVALS],
+            _merkleProof: DynArray[DynArray[bytes32, MAX_PROOF_LENGTH], MAX_INTERVALS]): nonpayable
+
+interface MinipoolInterface:
+  def distributeBalance(_rewardsOnly: bool): nonpayable
+
 interface EnsRevRegInterface:
   def setName(_name: String[256]) -> bytes32: nonpayable
 
@@ -31,6 +45,7 @@ addrReverseNode: constant(bytes32) = 0x91d1777781884d03a6757a803996e38de2a42967f
 ensRegAddress: constant(address) = 0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e
 rocketNodeStakingKey: constant(bytes32) = keccak256("contract.addressrocketNodeStaking")
 rocketTokenRPLKey: constant(bytes32) = keccak256("contract.addressrocketTokenRPL")
+rocketMerkleDistributorKey: constant(bytes32) = keccak256("contract.addressrocketMerkleDistributorMainnet")
 rocketStorage: immutable(RocketStorageInterface)
 RPLToken: immutable(RPLInterface)
 
@@ -50,10 +65,11 @@ def __init__(_rocketStorageAddress: address):
   RPLToken = RPLInterface(rocketStorage.getAddress(rocketTokenRPLKey))
   self.guardian = msg.sender
 
+allowPaymentsFrom: address
 @external
 @payable
 def __default__():
-  pass
+  assert msg.sender == self.allowPaymentsFrom, "external payment not allowed"
 
 event DeployRocketSplit:
   self: address
@@ -115,6 +131,26 @@ def withdrawETH():
   assert self._getRocketNodeStaking().getNodeRPLStake(self.nodeAddress) == 0, "stake"
   assert self.RPLPrincipal == 0, "principal"
   send(msg.sender, self.balance, gas=msg.gas)
+
+@external
+def claimRewards(_rewardIndex: DynArray[uint256, 128], # TODO: MAX_INTERVALS inlined because of https://github.com/vyperlang/vyper/issues/3294
+                 _amountRPL: DynArray[uint256, 128],
+                 _amountETH: DynArray[uint256, 128],
+                 _merkleProof: DynArray[DynArray[bytes32, 32], 128]): # TODO: MAX_PROOF_LENGTH inlined, same reason as above
+  assert msg.sender == self.RPLOwner, "auth" # TODO: should ETH owner also be allowed?
+  rocketMerkleDistributor: RocketMerkleDistributorInterface = RocketMerkleDistributorInterface(rocketStorage.getAddress(rocketMerkleDistributorKey))
+  self.allowPaymentsFrom = rocketMerkleDistributor.address
+  rocketMerkleDistributor.claim(self.nodeAddress, _rewardIndex, _amountRPL, _amountETH, _merkleProof)
+  self.allowPaymentsFrom = empty(address)
+
+@external
+def distributeMinipoolBalance(_minipool: DynArray[address, 1024]): # TODO: MAX_MINIPOOLS inlined, as above
+  assert msg.sender == self.ETHOwner, "auth" # TODO: should RPL owner also/only be allowed?
+  for minipoolAddress in _minipool:
+    minipool: MinipoolInterface = MinipoolInterface(minipoolAddress)
+    self.allowPaymentsFrom = minipoolAddress
+    minipool.distributeBalance(True)
+  self.allowPaymentsFrom = empty(address)
 
 @internal
 def _calculateFee(_amount: uint256, _fee: Fee) -> uint256:

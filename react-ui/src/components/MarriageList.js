@@ -1,10 +1,4 @@
 // A list of marriages created.
-
-import RocketSplitFactoryAddress from '../abi/RocketSplitFactory.json'
-import RocketsplitABI from '../abi/RocketSplit.json'
-import { useAccount, usePublicClient } from 'wagmi';
-import { useEffect, useState } from 'react';
-import { decodeEventLog, encodeEventTopics, parseAbi, parseAbiItem } from 'viem';
 import MarriageListItem from './MarriageListItem';
 
 const MarriageList = ({nodeAddress, splitAddress, setPendingWithdrawalAddress }) => {
@@ -52,6 +46,8 @@ const MarriageList = ({nodeAddress, splitAddress, setPendingWithdrawalAddress })
     // if(!wallets || wallets.length == 0){
     //     return null;
     // }
+
+    // @TODO if the current withdrawal address is a rocketsplit address... then we need to call the method on that contract.
 
     return (
         <div className="rocket-panel">

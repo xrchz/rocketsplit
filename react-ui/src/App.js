@@ -78,13 +78,17 @@ function App() {
                       <ConnectButton />
                     </header>
                     <div className="content">
+                      <p className="promo">
+                        Enter the Rocketpool node address below. You will be able to go the process of creating a marriage contract OR managing the functionality of an already setup marriage withdrawal address.
+                      </p>
                       <NodeFinder setWithdrawalAddress={setWithdrawalAddress}
                         setNodeAddress={setNodeAddress}
                         nodeAddress={nodeAddress}
                         pendingWithdrawalAddress={pendingWithdrawalAddress}
                         setPendingWithdrawalAddress={setPendingWithdrawalAddress}
+                        setSplitAddress={setSplitAddress}
                         toast={toast}/>
-                      <WithdrawalDisplay withdrawalAddress={withdrawalAddress} />
+                      {withdrawalAddress && <WithdrawalDisplay withdrawalAddress={withdrawalAddress} />}
                       {splitAddress && !pendingWithdrawalAddress && 
                         <MarriageList nodeAddress={nodeAddress} 
                           splitAddress={splitAddress}

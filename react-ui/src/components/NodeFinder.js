@@ -1,21 +1,26 @@
 import { useEffect, useState } from "react";
 import { keccak256 } from "viem";
 import RocketsplitABI from "../abi/RocketSplit.json";
-import { useContractRead, useContractWrite, usePrepareContractWrite, useWaitForTransaction } from "wagmi";
+import { useAccount, useContractRead, useContractWrite, useNetwork, usePrepareContractWrite, usePublicClient, useWaitForTransaction } from "wagmi";
+import { normalize } from "viem/ens";
 
-const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, pendingWithdrawalAddress, setPendingWithdrawalAddress}) => {
+const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, pendingWithdrawalAddress, setPendingWithdrawalAddress, setSplitAddress}) => {
 
     const [ nodeManagerAddress, setNodeManagerAddress ] = useState(null);
     const [ nodeManagerFunction, setNodeManagerFunction ] = useState(null);
-    const [ error, setError ] = useState(null);
+    const [ ensName, setEnsName ] = useState(null);
 
     const emptyAddress = `0x${'0'.repeat(40)}`
+    // eslint-disable-next-line no-useless-escape
     const addressPattern = '^(?:0x[0-9a-fA-F]{40})|(?:.{3,}\.eth)$'
     const addressPlaceholder = '0x... or ENS name'
 
+    const publicClient = usePublicClient();
+    const { address } = useAccount();
+    const { chain } = useNetwork();
+
     const storageContractConfig = {
-        //address: chain.id === 1 ? "0x1d8f8f00cfa6758d7bE78336684788Fb0ee0Fa46" : "0xd8Cd47263414aFEca62d6e2a3917d6600abDceB3",
-        address: "0x1d8f8f00cfa6758d7bE78336684788Fb0ee0Fa46",
+        address: chain?.id === 5 ? process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_GOERLI : process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_MAINNET,
         abi: [{"inputs":[{"internalType":"bytes32","name":"_key","type":"bytes32"}],"name":"getAddress","outputs":[{"internalType":"address","name":"r","type":"address"}],"stateMutability":"view","type":"function"}]   
     };
 
@@ -41,6 +46,7 @@ const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, p
         address: nodeManagerAddress,
         functionName: nodeManagerFunction,
         args: [nodeAddress],
+        enabled: nodeManagerAddress && nodeManagerFunction,
         onLoading: () => console.log("Loading..."),
         onError: (error) => {
             toast.error("Node node found. Please try again.");
@@ -59,7 +65,7 @@ const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, p
                 case "getNodePendingWithdrawalAddress":
                     console.log("Node pending withdrawal address: " + result);
 
-                    if(result != emptyAddress) {
+                    if(result !== emptyAddress) {
                         setPendingWithdrawalAddress(result);
                     }
                     break;
@@ -90,43 +96,67 @@ const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, p
     });
 
     const { write: confirmWithdrawalAddress, data } = useContractWrite(config);
-    const { data: receipt, isSuccess } = useWaitForTransaction({
+    const { isSuccess } = useWaitForTransaction({
         hash: data?.hash,
     });
 
-    const lookupWithdrawal = () => {
+    const lookupWithdrawal = async () => {
         console.log("Looking up withdrawal for address: " + nodeAddress);
 
         // Reset the withdrawal address.
         setWithdrawalAddress(null);
 
+        // Lookup ENS name if applicable.
+        const lookupAddress = await publicClient.getEnsAddress({
+            name: normalize(nodeAddress),
+        }).catch((error) => {
+            //console.log(error);
+            setEnsName(null);
+        });
+
+        if(lookupAddress) {
+            console.log("Setting node address to ENS");
+            setEnsName(nodeAddress);
+            setNodeAddress(lookupAddress);
+        }
+        else {
+            console.log("Falling back to address.")
+            setNodeAddress(nodeAddress);
+        }
+
         // Ensure node address is valid and following the correct pattern.
-        if(!nodeAddress.match(addressPattern)) {
+        if(nodeAddress !== null && !nodeAddress.match(addressPattern)) {
             toast.error("Invalid Address");
             setWithdrawalAddress(null)
+            setEnsName(null);
             return;
         }
 
         // Lets check up on the node.
-        setNodeAddress(nodeAddress);
         setNodeManagerFunction("getNodeExists");
     }
+
     useEffect(() => {
         if(isSuccess) {
+            console.log("Withdrawal address updated successfully.");
+            console.log(pendingWithdrawalAddress);
             setWithdrawalAddress(pendingWithdrawalAddress);
             setPendingWithdrawalAddress(null);
+            setSplitAddress(null);
             toast("Withdrawal address updated successfully.");
         }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     , [isSuccess]);
 
     return(
         <div className="rocket-panel">
             <h2>Enter Rocketpool Node Address:</h2>
-            <input placeholder={addressPlaceholder} onChange={(e) => { setNodeAddress(e.target.value);  setNodeManagerFunction(null)}}></input>
-            <span className="error">{error}</span>
-            <button onClick={() => lookupWithdrawal()}>Submit</button>
-            {pendingWithdrawalAddress && <><p>Pending Withdrawal Address: {pendingWithdrawalAddress}</p><a className="btn-action" href='#' onClick = {() => { confirmWithdrawalAddress?.() }}>Confirm Change</a></>}
+            <input placeholder={addressPlaceholder} value={nodeAddress} onChange={(e) => { setNodeAddress(e.target.value);  setNodeManagerFunction(null)}}></input>
+            <span>{ensName}</span>
+            <button disabled={!address || !nodeAddress} onClick={() => lookupWithdrawal()}>Submit</button>
+            {address ? <></> : <>Connect you wallet to get started.</>}
+            {pendingWithdrawalAddress && <><p>Pending Withdrawal Address: {pendingWithdrawalAddress}</p><span className="btn-action" onClick = {() => { confirmWithdrawalAddress?.() }}>Confirm Change</span></>}
         </div>
     )
 }

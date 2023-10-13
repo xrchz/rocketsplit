@@ -137,7 +137,7 @@ def claimRewards(_rewardIndex: DynArray[uint256, 128], # TODO: MAX_INTERVALS inl
                  _amountRPL: DynArray[uint256, 128],
                  _amountETH: DynArray[uint256, 128],
                  _merkleProof: DynArray[DynArray[bytes32, 32], 128]): # TODO: MAX_PROOF_LENGTH inlined, same reason as above
-  assert msg.sender == self.RPLOwner, "auth" # TODO: should ETH owner also be allowed?
+  assert msg.sender == self.RPLOwner or msg.sender == self.ETHOwner, "auth"
   rocketMerkleDistributor: RocketMerkleDistributorInterface = RocketMerkleDistributorInterface(rocketStorage.getAddress(rocketMerkleDistributorKey))
   self.allowPaymentsFrom = rocketMerkleDistributor.address
   rocketMerkleDistributor.claim(self.nodeAddress, _rewardIndex, _amountRPL, _amountETH, _merkleProof)
@@ -145,7 +145,7 @@ def claimRewards(_rewardIndex: DynArray[uint256, 128], # TODO: MAX_INTERVALS inl
 
 @external
 def distributeMinipoolBalance(_minipool: DynArray[address, 1024]): # TODO: MAX_MINIPOOLS inlined, as above
-  assert msg.sender == self.ETHOwner, "auth" # TODO: should RPL owner also/only be allowed?
+  assert msg.sender == self.ETHOwner or msg.sender == self.RPLOwner, "auth"
   for minipoolAddress in _minipool:
     minipool: MinipoolInterface = MinipoolInterface(minipoolAddress)
     self.allowPaymentsFrom = minipoolAddress
@@ -180,6 +180,7 @@ def confirmWithdrawalAddress():
 
 @external
 def ensSetName(_name: String[256]):
+  assert msg.sender == self.RPLOwner or msg.sender == self.ETHOwner, "auth"
   EnsRevRegInterface(
     EnsRegInterface(ensRegAddress).owner(addrReverseNode)).setName(_name)
 

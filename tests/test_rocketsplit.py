@@ -21,11 +21,11 @@ def freshAccount(accounts):
     return accounts[7]
 
 @pytest.fixture(scope='session')
-def freshETHOwner(accounts):
+def ETHOwner(accounts):
     return accounts[1]
 
 @pytest.fixture(scope='session')
-def freshRPLOwner(accounts, rocketStorage):
+def RPLOwner(accounts, rocketStorage):
     owner = accounts[2]
     # buy some RPL
     Weth = Contract('0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2')
@@ -77,16 +77,16 @@ def rocketsplitFactory(project, accounts, rocketStorage, deployer):
     return factory
 
 @pytest.fixture()
-def freshMarriageUnconfirmed(rocketsplitFactory, freshNode, freshRPLOwner, freshETHOwner):
+def freshMarriageUnconfirmed(rocketsplitFactory, freshNode, RPLOwner, ETHOwner):
     ETHFee = (5, 100)
     RPLFee = (10, 100)
     receipt = rocketsplitFactory.invoke_transaction(
-            'deploy', freshNode.address, freshETHOwner.address, freshRPLOwner.address, ETHFee, RPLFee, sender=freshETHOwner)
+            'deploy', freshNode.address, ETHOwner.address, RPLOwner.address, ETHFee, RPLFee, sender=ETHOwner)
     return Contract(receipt.return_value)
 
-def test_confirm_withdrawal_address_unset(freshMarriageUnconfirmed, freshETHOwner):
+def test_confirm_withdrawal_address_unset(freshMarriageUnconfirmed, ETHOwner):
     with reverts('Confirmation must come from the pending withdrawal address'):
-        freshMarriageUnconfirmed.confirmWithdrawalAddress(sender=freshETHOwner)
+        freshMarriageUnconfirmed.confirmWithdrawalAddress(sender=ETHOwner)
 
 def test_confirm_withdrawal_address_anyone(freshMarriageUnconfirmed, rocketStorage, freshNode, freshAccount):
     rocketStorage.setWithdrawalAddress(freshNode.address, freshMarriageUnconfirmed.address, False, sender=freshNode)
@@ -94,29 +94,46 @@ def test_confirm_withdrawal_address_anyone(freshMarriageUnconfirmed, rocketStora
     assert rocketStorage.getNodeWithdrawalAddress(freshNode.address) == freshMarriageUnconfirmed.address, "failed to set withdrawal address"
 
 @pytest.fixture()
-def freshMarriage(freshMarriageUnconfirmed, freshNode, freshETHOwner, rocketStorage):
+def freshMarriage(freshMarriageUnconfirmed, freshNode, ETHOwner, rocketStorage):
     rocketStorage.setWithdrawalAddress(freshNode.address, freshMarriageUnconfirmed.address, False, sender=freshNode)
-    freshMarriageUnconfirmed.confirmWithdrawalAddress(sender=freshETHOwner)
+    freshMarriageUnconfirmed.confirmWithdrawalAddress(sender=ETHOwner)
     return freshMarriageUnconfirmed
 
 @pytest.fixture()
-def migratedMarriageUnconfirmed(rocketsplitFactory, existingNode, freshRPLOwner, freshETHOwner):
+def migratedMarriageUnconfirmed(rocketsplitFactory, existingNode, RPLOwner, ETHOwner):
     ETHFee = (0, 1)
     RPLFee = (1, 5)
     receipt = rocketsplitFactory.invoke_transaction(
-            'deploy', existingNode.address, freshETHOwner.address, freshRPLOwner.address, ETHFee, RPLFee, sender=freshRPLOwner)
+            'deploy', existingNode.address, ETHOwner.address, RPLOwner.address, ETHFee, RPLFee, sender=RPLOwner)
     return Contract(receipt.return_value)
 
 @pytest.fixture()
-def migratedMarriage(rocketStorage, accounts, migratedMarriageUnconfirmed, existingNode, freshETHOwner, freshRPLOwner):
+def migratedMarriage(rocketStorage, accounts, migratedMarriageUnconfirmed, existingNode, ETHOwner, RPLOwner):
     existingWithdrawalAddress = rocketStorage.getNodeWithdrawalAddress(existingNode.address)
     existingWithdrawer = accounts[existingWithdrawalAddress]
     rocketStorage.setWithdrawalAddress(existingNode.address, migratedMarriageUnconfirmed.address, False, sender=existingWithdrawer)
-    migratedMarriageUnconfirmed.confirmWithdrawalAddress(sender=freshRPLOwner)
+    migratedMarriageUnconfirmed.confirmWithdrawalAddress(sender=RPLOwner)
     assert rocketStorage.getNodeWithdrawalAddress(existingNode.address) == migratedMarriageUnconfirmed.address, "failed to set withdrawal address"
+    return migratedMarriageUnconfirmed
+
+def test_withdraw_no_ETH_fresh(freshMarriage, RPLOwner, ETHOwner):
+    with reverts('auth'):
+        freshMarriage.withdrawETH(sender=RPLOwner)
+    prev1 = freshMarriage.balance
+    prev2 = ETHOwner.balance
+    freshMarriage.withdrawETH(sender=ETHOwner)
+    assert freshMarriage.balance == prev1
+    assert ETHOwner.balance == prev2
 
 def test_create_marriage(freshMarriage):
     pass
 
-def test_create_marriage_existing_node(migratedMarriage):
-    pass
+def test_cannot_just_withdraw_eth(migratedMarriage, ETHOwner):
+    with reverts('stake'):
+        migratedMarriage.withdrawETH(sender=ETHOwner)
+
+def test_anyone_cannot_withdraw_eth(migratedMarriage, RPLOwner, freshAccount):
+    with reverts('auth'):
+        migratedMarriage.withdrawETH(sender=RPLOwner)
+    with reverts('auth'):
+        migratedMarriage.withdrawETH(sender=freshAccount)

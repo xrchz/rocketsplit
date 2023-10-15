@@ -177,6 +177,8 @@ def withdrawRewards():
 @external
 def confirmWithdrawalAddress():
   rocketStorage.confirmWithdrawalAddress(self.nodeAddress)
+  rocketNodeStaking: RocketNodeStakingInterface = self._getRocketNodeStaking()
+  self.RPLPrincipal = rocketNodeStaking.getNodeRPLStake(self.nodeAddress)
 
 @external
 def ensSetName(_name: String[256]):

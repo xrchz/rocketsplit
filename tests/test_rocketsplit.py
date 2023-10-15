@@ -99,5 +99,24 @@ def freshMarriage(freshMarriageUnconfirmed, freshNode, freshETHOwner, rocketStor
     freshMarriageUnconfirmed.confirmWithdrawalAddress(sender=freshETHOwner)
     return freshMarriageUnconfirmed
 
+@pytest.fixture()
+def migratedMarriageUnconfirmed(rocketsplitFactory, existingNode, freshRPLOwner, freshETHOwner):
+    ETHFee = (0, 1)
+    RPLFee = (1, 5)
+    receipt = rocketsplitFactory.invoke_transaction(
+            'deploy', existingNode.address, freshETHOwner.address, freshRPLOwner.address, ETHFee, RPLFee, sender=freshRPLOwner)
+    return Contract(receipt.return_value)
+
+@pytest.fixture()
+def migratedMarriage(rocketStorage, accounts, migratedMarriageUnconfirmed, existingNode, freshETHOwner, freshRPLOwner):
+    existingWithdrawalAddress = rocketStorage.getNodeWithdrawalAddress(existingNode.address)
+    existingWithdrawer = accounts[existingWithdrawalAddress]
+    rocketStorage.setWithdrawalAddress(existingNode.address, migratedMarriageUnconfirmed.address, False, sender=existingWithdrawer)
+    migratedMarriageUnconfirmed.confirmWithdrawalAddress(sender=freshRPLOwner)
+    assert rocketStorage.getNodeWithdrawalAddress(existingNode.address) == migratedMarriageUnconfirmed.address, "failed to set withdrawal address"
+
 def test_create_marriage(freshMarriage):
+    pass
+
+def test_create_marriage_existing_node(migratedMarriage):
     pass

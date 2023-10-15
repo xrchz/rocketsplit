@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime
 from eth_utils import keccak
-from ape import Contract
+from ape import Contract, reverts
 
 @pytest.fixture(scope='session')
 def rocketStorage():
@@ -15,6 +15,10 @@ def rocketNodeManager(rocketStorage):
 def freshNode(accounts, rocketNodeManager):
     rocketNodeManager.registerNode('testZone', sender=accounts[0])
     return accounts[0]
+
+@pytest.fixture(scope='session')
+def freshAccount(accounts):
+    return accounts[7]
 
 @pytest.fixture(scope='session')
 def freshETHOwner(accounts):
@@ -49,7 +53,7 @@ def existingNode(accounts):
 def deployer(accounts):
     return accounts[5]
 
-@pytest.fixture(scope='session')
+@pytest.fixture()
 def rocketsplitFactory(project, accounts, rocketStorage, deployer):
     factory = project.RocketSplit.deploy(rocketStorage.address, sender=deployer)
     Registry = Contract('0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e')
@@ -72,34 +76,28 @@ def rocketsplitFactory(project, accounts, rocketStorage, deployer):
     assert Contract(Registry.resolver(factory_id)).name(factory_id) == name, "failed to set factory reverse record"
     return factory
 
-def test_create_marriage(rocketStorage, freshNode, freshRPLOwner, freshETHOwner, rocketsplitFactory):
+@pytest.fixture()
+def freshMarriageUnconfirmed(rocketsplitFactory, freshNode, freshRPLOwner, freshETHOwner):
     ETHFee = (5, 100)
     RPLFee = (10, 100)
-    receipt = rocketsplitFactory.deploy(freshNode.address, freshETHOwner.address, freshRPLOwner.address, ETHFee, RPLFee, sender=freshETHOwner)
-    marriage = Contract(receipt.return_value)
-    rocketStorage.setWithdrawalAddress(freshNode.address, marriage.address, False, sender=freshNode)
-    marriage.confirmWithdrawalAddress(sender=freshETHOwner)
+    receipt = rocketsplitFactory.invoke_transaction(
+            'deploy', freshNode.address, freshETHOwner.address, freshRPLOwner.address, ETHFee, RPLFee, sender=freshETHOwner)
+    return Contract(receipt.return_value)
 
-# @pytest.fixture(scope='function')
-# def freshMarriage(rocketsplitFactory, node, withdrawalAddress, accounts):
-#     return rocketsplit.deploy(node,
-#            withdrawalAddress, accounts[0],
-#             {'numerator': 100, 'denominator': 100}, {'numerator': 100, 'denominator': 100}, sender=withdrawalAddress).return_value
-#
-#
-# def test_create_factory(ethWhale, marriage, withdrawalAddress, project, accounts):
-#     # Send a bunch of ETH to the marriage contract.
-#     ethWhale.transfer(marriage, '100 ether')
-#
-#     wallet = project.RocketSplit.at(marriage)
-#
-#     # Get the balance of the marriage contract.
-#     assert wallet.ETHOwner() == withdrawalAddress # dev: ETH Owner is not the withdrawal address.
-#     assert wallet.RPLOwner() == accounts[0] # dev: RPL Owner is not the first account.
-#     assert wallet.balance == 100000000000000000000 # dev: Balance is not 100 ether.
-#
-#     # Lets withdrawal the ETH and test the distribution.
-#     wallet.withdrawRPL(sender=accounts[0])
-#
-#     # assert wallet.balance == 0 # dev: Balance is not 0 ether.
-#
+def test_confirm_withdrawal_address_unset(freshMarriageUnconfirmed, freshETHOwner):
+    with reverts('Confirmation must come from the pending withdrawal address'):
+        freshMarriageUnconfirmed.confirmWithdrawalAddress(sender=freshETHOwner)
+
+def test_confirm_withdrawal_address_anyone(freshMarriageUnconfirmed, rocketStorage, freshNode, freshAccount):
+    rocketStorage.setWithdrawalAddress(freshNode.address, freshMarriageUnconfirmed.address, False, sender=freshNode)
+    freshMarriageUnconfirmed.confirmWithdrawalAddress(sender=freshAccount)
+    assert rocketStorage.getNodeWithdrawalAddress(freshNode.address) == freshMarriageUnconfirmed.address, "failed to set withdrawal address"
+
+@pytest.fixture()
+def freshMarriage(freshMarriageUnconfirmed, freshNode, freshETHOwner, rocketStorage):
+    rocketStorage.setWithdrawalAddress(freshNode.address, freshMarriageUnconfirmed.address, False, sender=freshNode)
+    freshMarriageUnconfirmed.confirmWithdrawalAddress(sender=freshETHOwner)
+    return freshMarriageUnconfirmed
+
+def test_create_marriage(freshMarriage):
+    pass

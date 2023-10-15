@@ -43,15 +43,34 @@ def freshRPLOwner(accounts, rocketStorage):
 
 @pytest.fixture(scope='session')
 def existingNode(accounts):
-    return accounts.at('0xa4186193281f7727C070766ba60B63Df74eA4Da1') # rpl.ramana.eth
+    return accounts['0xa4186193281f7727C070766ba60B63Df74eA4Da1'] # rpl.ramana.eth
 
 @pytest.fixture(scope='session')
 def deployer(accounts):
     return accounts[5]
 
 @pytest.fixture(scope='session')
-def rocketsplitFactory(project, rocketStorage, deployer):
-    return project.RocketSplit.deploy(rocketStorage.address, sender=deployer)
+def rocketsplitFactory(project, accounts, rocketStorage, deployer):
+    factory = project.RocketSplit.deploy(rocketStorage.address, sender=deployer)
+    Registry = Contract('0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e')
+    namehash = project.provider.web3.ens.namehash
+    name = 'rocketsplit.eth'
+    name_id = namehash(name)
+    NameWrapper = Contract(Registry.owner(name_id))
+    name_owner_address = NameWrapper.ownerOf(name_id)
+    name_owner = accounts[name_owner_address]
+    name_resolver = Registry.resolver(name_id)
+    Resolver = Contract(name_resolver)
+    name_ttl = Registry.ttl(name_id)
+    Resolver.setAddr(name_id, factory.address, sender=name_owner)
+    NameWrapper.setRecord(name_id, factory.address, name_resolver, name_ttl, sender=name_owner)
+    factory.ensSetName(name, sender=deployer)
+    RevRegistry = Contract(Registry.owner(namehash('addr.reverse')))
+    factory_id = RevRegistry.node(factory.address)
+    assert Resolver.addr(name_id) == factory.address, "failed to set factory ens"
+    assert NameWrapper.ownerOf(name_id) == factory.address, "failed to set factory wrapped ens"
+    assert Contract(Registry.resolver(factory_id)).name(factory_id) == name, "failed to set factory reverse record"
+    return factory
 
 def test_create_marriage(rocketStorage, freshNode, freshRPLOwner, freshETHOwner, rocketsplitFactory):
     ETHFee = (5, 100)

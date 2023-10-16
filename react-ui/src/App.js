@@ -89,7 +89,7 @@ function App() {
                         setPendingWithdrawalAddress={setPendingWithdrawalAddress}
                         setSplitAddress={setSplitAddress}
                         toast={toast}/>
-                      {withdrawalAddress && <WithdrawalDisplay withdrawalAddress={withdrawalAddress} />}
+                      {withdrawalAddress && <WithdrawalDisplay withdrawalAddress={withdrawalAddress} toast={toast} />}
                       {splitAddress && !pendingWithdrawalAddress && 
                         <MarriageList nodeAddress={nodeAddress} 
                           splitAddress={splitAddress}

@@ -5,7 +5,7 @@ import RocketStorage from '../abi/RocketStorage.json'
 import { useState } from 'react';
 import { keccak256, toHex } from 'viem';
 
-const WithdrawalDisplay = ({withdrawalAddress}) => {
+const WithdrawalDisplay = ({withdrawalAddress, toast}) => {
     const [isRocketSplit, setIsRocketSplit] = useState(false);
     const [isRplOwner, setIsRplOwner] = useState(true);
     const [isEthOwner, setIsEthOwner] = useState(true);
@@ -20,6 +20,10 @@ const WithdrawalDisplay = ({withdrawalAddress}) => {
     const [showWithdrawalPanel, setShowWithdrawalPanel] = useState(false);
     const [showPendingWithdrawalPanel, setShowPendingWithdrawalPanel] = useState(false);
     // const [newAddressEnsName, setNewAddressEnsName] = useState(null);
+
+    // Stake RPL state.
+    const [showStakeRplPanel, setShowStakeRplPanel] = useState(false);
+    const [rplStake, setRplStake] = useState(0);
 
 
     const { chain } = useNetwork();
@@ -213,6 +217,37 @@ const WithdrawalDisplay = ({withdrawalAddress}) => {
         }
     });
 
+    const { config: stakeRPLConfig } = usePrepareContractWrite({
+        address: withdrawalAddress,
+        abi: RocketSplitABI.abi,
+        functionName: "stakeRPL",
+        args: [rplStake],
+        onError: (error) => {
+            if(error.shortMessage.includes("auth")){
+                setIsRplOwner(false);
+            }
+
+            if(error.shortMessage.includes("transfer amount exceeds balance")){
+                toast.error("Insufficient RPL balance");
+            }
+        }
+    })
+
+    const {write: stakeRPL, data: stakeRPLData} = useContractWrite(stakeRPLConfig);
+
+    useTransaction({
+        hash: stakeRPLData?.hash,
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => {
+            console.log("Error: " + error);
+        },
+        onSuccess: (result) => {
+            console.log("Successfully staked RPL");
+            setShowStakeRplPanel(false);
+        }
+    });
+  
+
     const { data: ethBalance } = useBalance({
         address: withdrawalAddress,
     });
@@ -243,9 +278,9 @@ const WithdrawalDisplay = ({withdrawalAddress}) => {
                         {isRplOwner && <li onClick={() => {withdrawRewards?.();}}>Withdrawal Rewards</li>}
                         {isEthOwner && <li onClick={() =>{withdrawETH?.();}}>Withdrawal ETH</li>}
                         {isRplOwner && <li onClick={() => {withdrawRPL?.()}}>Withdrawal RPL</li>}
-                        <li>Stake RPL (Coming soon)</li>
-                        <li>Change ENS Name (Coming soon)</li>
+                        <li onClick={() => {setShowStakeRplPanel(true)}}>Stake RPL</li>
                         <li onClick={() => {setNewWithdrawalAddress(null); setNewForce(false); setShowWithdrawalPanel(true)}}>Change Withdrawal Address</li>
+                        <li>Change ENS Name (Coming soon)</li>
                     </ul>
                 </>
             }
@@ -282,6 +317,17 @@ const WithdrawalDisplay = ({withdrawalAddress}) => {
                     <p>Current pending withdrawal address: {pendingWithdrawalAddress}</p>
                     <p>Force: {pendingForce ? 'Y' : 'N'}</p>
                     <button onClick={() => confirmChangeWithdrawalAddress?.()}>Confirm Pending Withdrawal Address Change</button>
+                </div>
+            }
+
+            {isRocketSplit && showStakeRplPanel && isRplOwner &&
+                <div className="action-panel">
+                    <h2>Stake additional RPL</h2>
+                    <p>This will add RPL principal to the RocketSplit contract</p>
+                    <label htmlFor="stakeRpl">Additional RPL:</label>
+                    <input className="address-input" type="text" id="stakeRpl" name="stakeRpl" onChange={(e) => { setRplStake(e.target.value); }} />
+                    <button disabled={!rplStake} onClick={() => stakeRPL?.()}>Stake Additional RPL</button>
+                    <div className="close-panel" onClick={() => {setShowStakeRplPanel(false)}}>Cancel</div>
                 </div>
             }
 

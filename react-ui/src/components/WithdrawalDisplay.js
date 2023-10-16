@@ -1,4 +1,4 @@
-import { useBalance, useContractRead, useContractWrite, useNetwork, usePrepareContractWrite } from 'wagmi'
+import { useBalance, useContractRead, useContractWrite, useNetwork, usePrepareContractWrite, useTransaction } from 'wagmi'
 import RocketSplitABI from '../abi/RocketSplit.json'
 import RocketStorageAddress from '../abi/RocketStorageAddress.json'
 import RocketStorage from '../abi/RocketStorage.json'
@@ -11,6 +11,16 @@ const WithdrawalDisplay = ({withdrawalAddress}) => {
     const [isEthOwner, setIsEthOwner] = useState(true);
     const [ethFee, setEthFee] = useState(null);
     const [rplFee, setRplFee] = useState(null);
+
+    // Change withdrawal address state.
+    const [newWidthdrawalAddress, setNewWithdrawalAddress] = useState(null);
+    const [newForce, setNewForce] = useState(false);
+    const [pendingWithdrawalAddress, setPendingWithdrawalAddress] = useState(null);
+    const [pendingForce, setPendingForce] = useState(null);
+    const [showWithdrawalPanel, setShowWithdrawalPanel] = useState(false);
+    const [showPendingWithdrawalPanel, setShowPendingWithdrawalPanel] = useState(false);
+    // const [newAddressEnsName, setNewAddressEnsName] = useState(null);
+
 
     const { chain } = useNetwork();
 
@@ -81,6 +91,33 @@ const WithdrawalDisplay = ({withdrawalAddress}) => {
     })
 
 
+    // Read for pending withdrawal changes.
+    useContractRead({
+        address: withdrawalAddress,
+        abi: RocketSplitABI.abi,
+        functionName: "pendingWithdrawalAddress",
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => console.log("Error: " + error),
+        onSuccess: (result) => {
+            if(result > 0 ) {
+                setShowPendingWithdrawalPanel(true);
+            }
+            setPendingWithdrawalAddress(result);
+        }
+    })
+
+    useContractRead({
+        address: withdrawalAddress,
+        abi: RocketSplitABI.abi,
+        functionName: "pendingForce",
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => console.log("Error: " + error),
+        onSuccess: (result) => {
+            setPendingForce(result);
+        }
+    })
+
+
     const { config: withdrawRPLConfig } = usePrepareContractWrite({
         address: withdrawalAddress,
         abi: RocketSplitABI.abi,
@@ -120,7 +157,61 @@ const WithdrawalDisplay = ({withdrawalAddress}) => {
 
     const {write: withdrawRewards} = useContractWrite(withdrawRewardsConfig);
 
+    
 
+    const { config: changeWithdrawalConfig } = usePrepareContractWrite({
+        address: withdrawalAddress,
+        abi: RocketSplitABI.abi,
+        functionName: "changeWithdrawalAddress",
+        args: [newWidthdrawalAddress, newForce],
+        onError: (error) => {
+            if(error.shortMessage.includes("auth")){
+                setIsEthOwner(false);
+            }
+        }
+    })
+
+    const {write: changeWithdrawalAddress, data: changeWithdrawalAddressData} = useContractWrite(changeWithdrawalConfig);
+
+    // Listen for a successfull (or failed) transaction.
+    useTransaction({
+        hash: changeWithdrawalAddressData?.hash,
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => console.log("Error: " + error),
+        onSuccess: (result) => {
+            console.log("Successfully changed withdrawal address to pending state");
+            setShowWithdrawalPanel(false);
+            setShowPendingWithdrawalPanel(true);
+            setPendingWithdrawalAddress(newWidthdrawalAddress);
+            setPendingForce(newForce);
+            
+        }
+    });
+
+
+    const { config: confirmChangeWithdrawalConfig } = usePrepareContractWrite({
+        address: withdrawalAddress,
+        abi: RocketSplitABI.abi,
+        functionName: "confirmChangeWithdrawalAddress",
+        args: [pendingWithdrawalAddress, pendingForce],
+        onError: (error) => {
+            if(error.shortMessage.includes("auth")){
+                setIsRplOwner(false);
+            }
+        }
+    })
+
+    const {write: confirmChangeWithdrawalAddress, data: confirmChangeWithdrawalAddressData} = useContractWrite(confirmChangeWithdrawalConfig);
+
+    useTransaction({
+        hash: confirmChangeWithdrawalAddressData?.hash,
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => console.log("Error: " + error),
+        onSuccess: (result) => {
+            console.log("Successfully changed withdrawal address to pending state");
+            setShowPendingWithdrawalPanel(false);
+        }
+    });
 
     const { data: ethBalance } = useBalance({
         address: withdrawalAddress,
@@ -154,9 +245,44 @@ const WithdrawalDisplay = ({withdrawalAddress}) => {
                         {isRplOwner && <li onClick={() => {withdrawRPL?.()}}>Withdrawal RPL</li>}
                         <li>Stake RPL (Coming soon)</li>
                         <li>Change ENS Name (Coming soon)</li>
-                        <li>Change Withdrawal Address (Coming soon)</li>
+                        <li onClick={() => {setNewWithdrawalAddress(null); setNewForce(false); setShowWithdrawalPanel(true)}}>Change Withdrawal Address</li>
                     </ul>
                 </>
+            }
+
+            {isRocketSplit && showWithdrawalPanel &&
+                <div className="action-panel">
+                    <h2>Set pending withdrawal address change</h2>
+                    <p>This transaction will set the withdrawal address into a pending state within the current Rocketsplit withdrawal address. After this is complete, the RPL owner will need to confirm to set the nodes pending withdrawal address.</p>
+                    <label htmlFor="newWithdrawal">New Withdrawal Address</label>
+                    <input className="address-input" type="text" id="newWithdrawal" name="newWithdrawal" onChange={(e) => { setNewWithdrawalAddress(e.target.value); }} />
+                    {/* <span className="ens-label">{newAddressEnsName}</span> */}
+                    <div>
+                        <label htmlFor="force-change">Force?</label>
+                        <input
+                            type="checkbox"
+                            id="force-change"
+                            name="force-change"
+                            onChange={(e) => { 
+                                const newValue = e.target.checked ? 1 : 0;
+                                setNewForce(newValue);
+                            }}
+                        />
+                    </div>
+                    <button disabled={!newWidthdrawalAddress} onClick={() => changeWithdrawalAddress?.()}>Set Pending Withdrawal Address Change</button>
+                    <div className="close-panel" onClick={() => {setShowWithdrawalPanel(false)}}>Cancel</div>
+                </div>
+            }
+
+            {isRocketSplit && showPendingWithdrawalPanel && pendingWithdrawalAddress && isRplOwner &&
+                <div className="sub-panel">
+                    {/* Show the pending withdrawal address change and force */}
+                    <h2>Confirm pending withdrawal address change</h2>
+                    <p>This transaction will confirm the pending withdrawal address change.</p>
+                    <p>Current pending withdrawal address: {pendingWithdrawalAddress}</p>
+                    <p>Force: {pendingForce ? 'Y' : 'N'}</p>
+                    <button onClick={() => confirmChangeWithdrawalAddress?.()}>Confirm Pending Withdrawal Address Change</button>
+                </div>
             }
 
         </div>

@@ -82,6 +82,7 @@ function App() {
                         Enter the Rocketpool node address below. You will be able to go the process of creating a marriage contract OR managing the functionality of an already setup marriage withdrawal address.
                       </p>
                       <NodeFinder setWithdrawalAddress={setWithdrawalAddress}
+                        withdrawalAddress={withdrawalAddress}
                         setNodeAddress={setNodeAddress}
                         nodeAddress={nodeAddress}
                         pendingWithdrawalAddress={pendingWithdrawalAddress}

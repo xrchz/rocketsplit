@@ -1,18 +1,23 @@
 import RocketStorage from '../abi/RocketStorage.json'
 import RocketStorageAddress from '../abi/RocketStorageAddress.json'
 import { useContractWrite, usePrepareContractWrite, useWaitForTransaction } from "wagmi";
+import { useState } from 'react';
 
 const MarriageListItem = ({ nodeAddress, splitAddress, setPendingWithdrawalAddress }) => {
+
+    const [withdrawalAddressEnabled, setWithdrawalAddressEnabled] = useState(false);
 
     const { config } = usePrepareContractWrite({
         address: RocketStorageAddress,
         abi: RocketStorage,
         functionName: "setWithdrawalAddress",
         args: [nodeAddress, splitAddress, false],
-        onError: (error) => console.log("Error: " + error),
+        onError: (error) => {
+            setWithdrawalAddressEnabled(false);
+        },
         onLoading: () => console.log("Loading..."),
         onSuccess: (resultObj) => {
-             console.log(resultObj);
+            setWithdrawalAddressEnabled(true);
         }
     });
 
@@ -32,8 +37,15 @@ const MarriageListItem = ({ nodeAddress, splitAddress, setPendingWithdrawalAddre
     return (
         <li className="split-listitem">
             <strong>{splitAddress}</strong>
-            <span className="btn-action" onClick={() => setWithdrawalAddress?.()}>Set Withdrawal Address</span>
-        </li>
+            {withdrawalAddressEnabled && 
+                <button className="btn-action" onClick={() => setWithdrawalAddress?.()}>Set Withdrawal Address</button>
+            }
+            {!withdrawalAddressEnabled &&
+                <div className="sub-panel">
+                    Connect as the exsisting withdrawal address to set the marriage contract.
+                </div>
+            }
+            </li>
     )
 }
 

@@ -50,6 +50,7 @@ body {
   margin-bottom: 10px;
   padding: 30px;
   border-radius: 5px;
+  position: relative;
 
   /* Fade in the panel */
   animation: fadein .5s;
@@ -86,6 +87,46 @@ body {
   background-color: #d4d1d1;
   padding: 20px;
   border: 1px solid #e8e6e6;
+}
+
+.action-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  background-color: rgba(50, 50, 50, 20);
+  padding: 30px;
+  color: white;
+  justify-content: center;
+}
+
+.action-panel h2 {
+  margin-bottom: 5px;
+}
+
+.action-panel p {
+  margin-bottom: 20px;
+}
+
+.action-panel .close-panel {
+  color: rgb(198, 18, 18);
+  cursor: pointer;
+  text-align: center;
+  margin-top: 40px;
+}
+
+.action-panel .close-panel:hover {
+  color: rgb(217, 0, 0);
+}
+
+.sub-panel {
+  background-color: rgba(204, 0, 0, .9);
+  color: white;
+  padding: 30px;
 }
 
 .fee-inputs {

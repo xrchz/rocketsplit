@@ -4,7 +4,7 @@ import RocketsplitABI from "../abi/RocketSplit.json";
 import { useAccount, useContractRead, useContractWrite, useNetwork, usePrepareContractWrite, usePublicClient, useWaitForTransaction } from "wagmi";
 import { normalize } from "viem/ens";
 
-const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, pendingWithdrawalAddress, setPendingWithdrawalAddress, setSplitAddress}) => {
+const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, nodeAddress, toast, pendingWithdrawalAddress, setPendingWithdrawalAddress, setSplitAddress}) => {
 
     const [ nodeManagerAddress, setNodeManagerAddress ] = useState(null);
     const [ nodeManagerFunction, setNodeManagerFunction ] = useState(null);
@@ -60,12 +60,13 @@ const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, p
                     }
                     else {
                         toast.error("Node not found. Please try again.");
+                        setPendingWithdrawalAddress(null);
                     }
                     break;
                 case "getNodePendingWithdrawalAddress":
                     console.log("Node pending withdrawal address: " + result);
-
-                    if(result !== emptyAddress) {
+                    console.log("Withdrawal address: " + withdrawalAddress)
+                    if(result !== emptyAddress && result !== withdrawalAddress) {
                         setPendingWithdrawalAddress(result);
                     }
                     break;
@@ -78,6 +79,7 @@ const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, p
                 case "getNodeWithdrawalAddress":
                     console.log("Node withdrawal address: " + result);
                     setWithdrawalAddress(result);
+                    setPendingWithdrawalAddress(null);
                     // Check for pending withdrawal address change.
                     setNodeManagerFunction("getNodePendingWithdrawalAddress");
                     break;
@@ -95,9 +97,14 @@ const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, p
         args: [],
     });
 
-    const { write: confirmWithdrawalAddress, data } = useContractWrite(config);
+    const { write: confirmWithdrawalAddress, data: confirmWithdrawalAddressData } = useContractWrite(config);
     const { isSuccess } = useWaitForTransaction({
-        hash: data?.hash,
+        hash: confirmWithdrawalAddressData?.hash,
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => console.log("Error: " + error),
+        onSuccess: (resultObj) => {
+            console.log("Successfully confirmed withdrawal address!");
+        }
     });
 
     const lookupWithdrawal = async () => {
@@ -156,7 +163,7 @@ const NodeFinder = ({setWithdrawalAddress, setNodeAddress, nodeAddress, toast, p
             <span>{ensName}</span>
             <button disabled={!address || !nodeAddress} onClick={() => lookupWithdrawal()}>Submit</button>
             {address ? <></> : <>Connect you wallet to get started.</>}
-            {pendingWithdrawalAddress && <><p>Pending Withdrawal Address: {pendingWithdrawalAddress}</p><span className="btn-action" onClick = {() => { confirmWithdrawalAddress?.() }}>Confirm Change</span></>}
+            {pendingWithdrawalAddress && <div className="sub-panel"><p>Pending Node Withdrawal Address Change: {pendingWithdrawalAddress}</p><button className="btn-action" onClick = {() => { confirmWithdrawalAddress?.() }}>Confirm Change</button></div>}
         </div>
     )
 }

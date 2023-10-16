@@ -177,12 +177,18 @@ def withdrawRewards():
 @external
 def confirmWithdrawalAddress():
   rocketStorage.confirmWithdrawalAddress(self.nodeAddress)
+  rocketNodeStaking: RocketNodeStakingInterface = self._getRocketNodeStaking()
+  self.RPLPrincipal = rocketNodeStaking.getNodeRPLStake(self.nodeAddress)
 
 @external
 def ensSetName(_name: String[256]):
-  assert msg.sender == self.RPLOwner or msg.sender == self.ETHOwner, "auth"
+  assert msg.sender == self.RPLOwner or msg.sender == self.ETHOwner or msg.sender == self.guardian, "auth"
   EnsRevRegInterface(
     EnsRegInterface(ensRegAddress).owner(addrReverseNode)).setName(_name)
+
+@external
+def onERC1155Received(_operator: address, _from: address, _id: uint256, _value: uint256, _data: Bytes[1]) -> bytes4:
+  return convert(4063915617, bytes4)
 
 @external
 def changeWithdrawalAddress(_newWithdrawalAddress: address, _force: bool):

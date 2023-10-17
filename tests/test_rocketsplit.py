@@ -3,6 +3,8 @@ from datetime import datetime
 from eth_utils import keccak
 from ape import Contract, reverts
 
+NULL_ADDRESS = '0x0000000000000000000000000000000000000000'
+
 @pytest.fixture(scope='session')
 def rocketStorage():
     return Contract('0x1d8f8f00cfa6758d7bE78336684788Fb0ee0Fa46')
@@ -81,7 +83,8 @@ def freshMarriageUnconfirmed(rocketsplitFactory, freshNode, RPLOwner, ETHOwner):
     ETHFee = (5, 100)
     RPLFee = (10, 100)
     receipt = rocketsplitFactory.invoke_transaction(
-            'deploy', freshNode.address, ETHOwner.address, RPLOwner.address, ETHFee, RPLFee, sender=ETHOwner)
+            'deploy', freshNode.address, ETHOwner.address, RPLOwner.address,
+            ETHFee, RPLFee, NULL_ADDRESS, 0, sender=ETHOwner)
     return Contract(receipt.return_value)
 
 def test_confirm_withdrawal_address_unset(freshMarriageUnconfirmed, ETHOwner):
@@ -104,7 +107,8 @@ def migratedMarriageUnconfirmed(rocketsplitFactory, existingNode, RPLOwner, ETHO
     ETHFee = (0, 1)
     RPLFee = (1, 5)
     receipt = rocketsplitFactory.invoke_transaction(
-            'deploy', existingNode.address, ETHOwner.address, RPLOwner.address, ETHFee, RPLFee, sender=RPLOwner)
+            'deploy', existingNode.address, ETHOwner.address, RPLOwner.address,
+            ETHFee, RPLFee, ETHOwner.address, '69 ETH', sender=RPLOwner)
     return Contract(receipt.return_value)
 
 @pytest.fixture()

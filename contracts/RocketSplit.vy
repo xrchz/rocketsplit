@@ -14,6 +14,7 @@ interface RPLInterface:
 
 interface RocketStorageInterface:
   def getAddress(_key: bytes32) -> address: view
+  def getWithdrawalAddress(_nodeAddress: address) -> address: view
   def confirmWithdrawalAddress(_nodeAddress: address): nonpayable
   def setWithdrawalAddress(_nodeAddress: address, _newWithdrawalAddress: address, _confirm: bool): nonpayable
 
@@ -80,26 +81,24 @@ event DeployRocketSplit:
   RPLOwner: indexed(address)
   ETHFee: Fee
   RPLFee: Fee
-  RPLRefundee: address
-  RPLRefund: uint256
+  RPLRefund: bool
 
 @external
 def deploy(_nodeAddress: address,
            _ETHOwner: address, _RPLOwner: address,
            _ETHFee: Fee, _RPLFee: Fee,
-           _RPLRefundee: address, _RPLRefund: uint256) -> address:
+           _refundRPL: bool) -> address:
   assert self.guardian != empty(address), "proxy"
   contract: RocketSplitInterface = RocketSplitInterface(create_minimal_proxy_to(self))
-  contract.setup(_nodeAddress, _ETHOwner, _RPLOwner, _ETHFee, _RPLFee, _RPLRefundee, _RPLRefund)
-  log DeployRocketSplit(contract.address, _nodeAddress, _ETHOwner, _RPLOwner,
-                        _ETHFee, _RPLFee, _RPLRefundee, _RPLRefund)
+  contract.setup(_nodeAddress, _ETHOwner, _RPLOwner, _ETHFee, _RPLFee, _refundRPL)
+  log DeployRocketSplit(contract.address, _nodeAddress, _ETHOwner, _RPLOwner, _ETHFee, _RPLFee, _refundRPL)
   return contract.address
 
 @external
 def setup(_nodeAddress: address,
           _ETHOwner: address, _RPLOwner: address,
           _ETHFee: Fee, _RPLFee: Fee,
-          _RPLRefundee: address, _RPLRefund: uint256):
+          _refundRPL: bool):
   assert self.guardian == empty(address), "auth"
   self.guardian = msg.sender
   self.nodeAddress = _nodeAddress
@@ -107,8 +106,9 @@ def setup(_nodeAddress: address,
   self.RPLOwner = _RPLOwner
   self.ETHFee = _ETHFee
   self.RPLFee = _RPLFee
-  self.RPLRefundee = _RPLRefundee
-  self.RPLRefund = _RPLRefund
+  if _refundRPL:
+    self.RPLRefundee = rocketStorage.getWithdrawalAddress(_nodeAddress)
+    self.RPLRefund = self._getRocketNodeStaking().getNodeRPLStake(_nodeAddress)
 
 @internal
 def _getRocketNodeStaking() -> RocketNodeStakingInterface:

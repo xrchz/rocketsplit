@@ -131,7 +131,7 @@ const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, no
     });
 
     const { write: confirmNonRPWithdrawalAddress, data: confirmNonRPWithdrawalAddressData } = useContractWrite(confirmWithdrawalConfig);
-    const { isSuccess: confirmWithdrawalIsSuccess } = useWaitForTransaction({
+    useWaitForTransaction({
         hash: confirmNonRPWithdrawalAddressData?.hash,
         onLoading: () => console.log("Loading..."),
         onError: (error) => console.log("Error: " + error),

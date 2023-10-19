@@ -14,7 +14,7 @@ interface RPLInterface:
 
 interface RocketStorageInterface:
   def getAddress(_key: bytes32) -> address: view
-  def getWithdrawalAddress(_nodeAddress: address) -> address: view
+  def getNodeWithdrawalAddress(_nodeAddress: address) -> address: view
   def confirmWithdrawalAddress(_nodeAddress: address): nonpayable
   def setWithdrawalAddress(_nodeAddress: address, _newWithdrawalAddress: address, _confirm: bool): nonpayable
 
@@ -107,7 +107,7 @@ def setup(_nodeAddress: address,
   self.ETHFee = _ETHFee
   self.RPLFee = _RPLFee
   if _refundRPL:
-    self.RPLRefundee = rocketStorage.getWithdrawalAddress(_nodeAddress)
+    self.RPLRefundee = rocketStorage.getNodeWithdrawalAddress(_nodeAddress)
     self.RPLRefund = self._getRocketNodeStaking().getNodeRPLStake(_nodeAddress)
 
 @internal

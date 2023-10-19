@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { keccak256 } from "viem";
-import RocketsplitABI from "../abi/RocketSplit.json";
+import RocketSplitABI from "../abi/RocketSplit.json";
 import { useAccount, useContractRead, useContractWrite, useNetwork, usePrepareContractWrite, usePublicClient, useWaitForTransaction } from "wagmi";
 import { normalize } from "viem/ens";
 
@@ -18,10 +18,11 @@ const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, no
     const publicClient = usePublicClient();
     const { address } = useAccount();
     const { chain } = useNetwork();
+    const [ isRocketSplit, setIsRocketSplit ] = useState(false);
 
     const storageContractConfig = {
         address: chain?.id === 5 ? process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_GOERLI : process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_MAINNET,
-        abi: [{"inputs":[{"internalType":"bytes32","name":"_key","type":"bytes32"}],"name":"getAddress","outputs":[{"internalType":"address","name":"r","type":"address"}],"stateMutability":"view","type":"function"}]   
+        abi: [{"inputs":[{"internalType":"bytes32","name":"_key","type":"bytes32"}],"name":"getAddress","outputs":[{"internalType":"address","name":"r","type":"address"}],"stateMutability":"view","type":"function"}, {"inputs":[{"internalType":"address","name":"_nodeAddress","type":"address"}],"name":"confirmWithdrawalAddress","outputs":[],"stateMutability":"nonpayable","type":"function"}]   
     };
 
     const nodeManagerConfig = {
@@ -39,6 +40,21 @@ const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, no
             setNodeManagerAddress(result);
         }
     })
+
+    // We need to know if the pendingWithdrawalAddress is a Rocketsplit address,
+    //  if not we can call directly to the storage contract as long as we are connected as the pending address.
+    // We are doing this twice (WithdrawalDisplay does it too), we may want to share this.
+    useContractRead({
+        abi: RocketSplitABI.abi,
+        address: pendingWithdrawalAddress,
+        functionName: "guardian",
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => setIsRocketSplit(false),
+        onSuccess: (result) => {
+            console.log("Result: " + result);
+            setIsRocketSplit(true)
+        }
+    });
 
     // Only executes when the address and functionName are set.
     useContractRead({
@@ -92,7 +108,7 @@ const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, no
     // Prepare the contract write to update pending withdrawal address.
     const { config } = usePrepareContractWrite({
         address: pendingWithdrawalAddress,
-        abi: RocketsplitABI.abi,
+        abi: RocketSplitABI.abi,
         functionName: "confirmWithdrawalAddress",
         args: [],
     });
@@ -104,6 +120,25 @@ const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, no
         onError: (error) => console.log("Error: " + error),
         onSuccess: (resultObj) => {
             console.log("Successfully confirmed withdrawal address!");
+        }
+    });
+
+    // Prepare the contract write to update pending withdrawal address.
+    const { config: confirmWithdrawalConfig } = usePrepareContractWrite({
+        ...storageContractConfig,
+        functionName: "confirmWithdrawalAddress",
+        args: [nodeAddress]
+    });
+
+    const { write: confirmNonRPWithdrawalAddress, data: confirmNonRPWithdrawalAddressData } = useContractWrite(confirmWithdrawalConfig);
+    const { isSuccess: confirmWithdrawalIsSuccess } = useWaitForTransaction({
+        hash: confirmNonRPWithdrawalAddressData?.hash,
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => console.log("Error: " + error),
+        onSuccess: (resultObj) => {
+            console.log("Successfully confirmed withdrawal address!");
+            setWithdrawalAddress(pendingWithdrawalAddress);
+            setPendingWithdrawalAddress(null);
         }
     });
 
@@ -163,7 +198,12 @@ const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, no
             <span>{ensName}</span>
             <button disabled={!address || !nodeAddress} onClick={() => lookupWithdrawal()}>Submit</button>
             {address ? <></> : <>Connect you wallet to get started.</>}
-            {pendingWithdrawalAddress && <div className="sub-panel"><p>Pending Node Withdrawal Address Change: {pendingWithdrawalAddress}</p><button className="btn-action" onClick = {() => { confirmWithdrawalAddress?.() }}>Confirm Change</button></div>}
+            {pendingWithdrawalAddress && isRocketSplit &&
+                <div className="sub-panel"><p>Pending Node Withdrawal Address Change, <strong>migrating to Rocketsplit 🚀</strong> {pendingWithdrawalAddress}</p><button className="btn-action" onClick = {() => { confirmWithdrawalAddress?.() }}>Confirm Change</button></div>
+            }
+            {pendingWithdrawalAddress && !isRocketSplit && // @TODO: need to ensure account connected is new withdrawal.
+                <div className="sub-panel"><p>Pending Node Withdrawal Address Change NOT Rocketsplit: {pendingWithdrawalAddress}</p><button className="btn-action" onClick = {() => { confirmNonRPWithdrawalAddress?.() }}>Confirm Change</button></div>
+            }
         </div>
     )
 }

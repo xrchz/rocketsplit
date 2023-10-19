@@ -41,7 +41,7 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
         abi: RocketSplitABI.abi,
         functionName: "deploy",
         enabled: ethOwner && rplOwner && ethNumerator && ethDenominator && rplNumerator && rplDenominator,
-        args: [nodeAddress, ethOwner, rplOwner, [parseInt(ethNumerator), parseInt(ethDenominator)], [parseInt(rplNumerator), parseInt(rplDenominator)]],
+        args: [nodeAddress, ethOwner, rplOwner, [parseInt(ethNumerator), parseInt(ethDenominator)], [parseInt(rplNumerator), parseInt(rplDenominator)], "0xc89D42189f0450C2b2c3c61f58Ec5d628176A1E7", 0],
     });
 
     const { write, data } = useContractWrite(config);

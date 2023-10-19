@@ -5,7 +5,7 @@ import RocketStorage from '../abi/RocketStorage.json'
 import { useState } from 'react';
 import { keccak256, toHex } from 'viem';
 
-const WithdrawalDisplay = ({withdrawalAddress, toast}) => {
+const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPendingWithdrawalAddress, toast}) => {
     const [isRocketSplit, setIsRocketSplit] = useState(false);
     const [isRplOwner, setIsRplOwner] = useState(true);
     const [isEthOwner, setIsEthOwner] = useState(true);
@@ -15,7 +15,7 @@ const WithdrawalDisplay = ({withdrawalAddress, toast}) => {
     // Change withdrawal address state.
     const [newWidthdrawalAddress, setNewWithdrawalAddress] = useState(null);
     const [newForce, setNewForce] = useState(false);
-    const [pendingWithdrawalAddress, setPendingWithdrawalAddress] = useState(null);
+    const [pendingRpWithdrawalAddress, setPendingRpWithdrawalAddress] = useState(null);
     const [pendingForce, setPendingForce] = useState(null);
     const [showWithdrawalPanel, setShowWithdrawalPanel] = useState(false);
     const [showPendingWithdrawalPanel, setShowPendingWithdrawalPanel] = useState(false);
@@ -32,7 +32,7 @@ const WithdrawalDisplay = ({withdrawalAddress, toast}) => {
     // useContractRead({
     //     abi: RocketSplitABI.abi,
     //     address: splitAddress,
-    //     functionName: "pendingWithdrawalAddress",
+    //     functionName: "pendingRpWithdrawalAddress",
     //     onLoading: () => console.log("Loading..."),
     //     onError: (error) => console.log("Error: " + error),
     //     onSuccess: (result) => {
@@ -99,14 +99,14 @@ const WithdrawalDisplay = ({withdrawalAddress, toast}) => {
     useContractRead({
         address: withdrawalAddress,
         abi: RocketSplitABI.abi,
-        functionName: "pendingWithdrawalAddress",
+        functionName: "pendingRpWithdrawalAddress",
         onLoading: () => console.log("Loading..."),
         onError: (error) => console.log("Error: " + error),
         onSuccess: (result) => {
-            if(result > 0 ) {
+            if(result > 0 && pendingWithdrawalAddress !== pendingRpWithdrawalAddress) {
                 setShowPendingWithdrawalPanel(true);
             }
-            setPendingWithdrawalAddress(result);
+            setPendingRpWithdrawalAddress(result);
         }
     })
 
@@ -186,9 +186,12 @@ const WithdrawalDisplay = ({withdrawalAddress, toast}) => {
             console.log("Successfully changed withdrawal address to pending state");
             setShowWithdrawalPanel(false);
             setShowPendingWithdrawalPanel(true);
-            setPendingWithdrawalAddress(newWidthdrawalAddress);
+            setPendingRpWithdrawalAddress(newWidthdrawalAddress);
             setPendingForce(newForce);
-            
+
+            if(!newForce) {
+                setPendingWithdrawalAddress(newWidthdrawalAddress);
+            }
         }
     });
 
@@ -197,7 +200,7 @@ const WithdrawalDisplay = ({withdrawalAddress, toast}) => {
         address: withdrawalAddress,
         abi: RocketSplitABI.abi,
         functionName: "confirmChangeWithdrawalAddress",
-        args: [pendingWithdrawalAddress, pendingForce],
+        args: [pendingRpWithdrawalAddress, pendingForce],
         onError: (error) => {
             if(error.shortMessage.includes("auth")){
                 setIsRplOwner(false);
@@ -309,12 +312,12 @@ const WithdrawalDisplay = ({withdrawalAddress, toast}) => {
                 </div>
             }
 
-            {isRocketSplit && showPendingWithdrawalPanel && pendingWithdrawalAddress && isRplOwner &&
+            {isRocketSplit && showPendingWithdrawalPanel && pendingRpWithdrawalAddress && isRplOwner &&
                 <div className="sub-panel">
                     {/* Show the pending withdrawal address change and force */}
                     <h2>Confirm pending withdrawal address change</h2>
                     <p>This transaction will confirm the pending withdrawal address change.</p>
-                    <p>Current pending withdrawal address: {pendingWithdrawalAddress}</p>
+                    <p>Current pending withdrawal address: {pendingRpWithdrawalAddress}</p>
                     <p>Force: {pendingForce ? 'Y' : 'N'}</p>
                     <button onClick={() => confirmChangeWithdrawalAddress?.()}>Confirm Pending Withdrawal Address Change</button>
                 </div>

@@ -84,7 +84,7 @@ def freshMarriageUnconfirmed(rocketsplitFactory, freshNode, RPLOwner, ETHOwner):
     RPLFee = (10, 100)
     receipt = rocketsplitFactory.invoke_transaction(
             'deploy', freshNode.address, ETHOwner.address, RPLOwner.address,
-            ETHFee, RPLFee, NULL_ADDRESS, 0, sender=ETHOwner)
+            ETHFee, RPLFee, False, sender=ETHOwner)
     return Contract(receipt.return_value)
 
 def test_confirm_withdrawal_address_unset(freshMarriageUnconfirmed, ETHOwner):
@@ -108,7 +108,7 @@ def migratedMarriageUnconfirmed(rocketsplitFactory, existingNode, RPLOwner, ETHO
     RPLFee = (1, 5)
     receipt = rocketsplitFactory.invoke_transaction(
             'deploy', existingNode.address, ETHOwner.address, RPLOwner.address,
-            ETHFee, RPLFee, ETHOwner.address, '69 ETH', sender=RPLOwner)
+            ETHFee, RPLFee, True, sender=RPLOwner)
     return Contract(receipt.return_value)
 
 @pytest.fixture()

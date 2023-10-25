@@ -25,6 +25,9 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
     const [showStakeRplPanel, setShowStakeRplPanel] = useState(false);
     const [rplStake, setRplStake] = useState(0);
 
+    const [RPLRefundee, setRPLRefundee] = useState(null);
+    const [RPLRefund, setRPLRefund] = useState(null);
+
 
     const { chain } = useNetwork();
 
@@ -120,6 +123,30 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
             setPendingForce(result);
         }
     })
+
+
+    useContractRead({
+        address: withdrawalAddress,
+        abi: RocketSplitABI.abi,
+        functionName: "RPLRefundee",
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => console.log("Error: " + error),
+        onSuccess: (result) => {
+            setRPLRefundee(result);
+        }
+    })
+
+    useContractRead({
+        address: withdrawalAddress,
+        abi: RocketSplitABI.abi,
+        functionName: "RPLRefund",
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => console.log("Error: " + error),
+        onSuccess: (result) => {
+            setRPLRefund(result + " RPL");
+        }
+    })
+
 
 
     const { config: withdrawRPLConfig } = usePrepareContractWrite({
@@ -274,6 +301,7 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
                 {ethFee && <p>ETH Fee: <strong>{ethFee}</strong></p>}
                 {rplFee && <p>RPL Fee: <strong>{rplFee}</strong></p>}
             </div>
+            {isRocketSplit && RPLRefundee && <div>{RPLRefundee} - {RPLRefund}</div>}
             {!isRocketSplit && <p className="not-rocketsplit">Not a RocketSplit Address</p>}
             {isRocketSplit &&
                 <>

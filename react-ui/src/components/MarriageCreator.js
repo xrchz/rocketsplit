@@ -24,6 +24,8 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
     const [ethOwnerEnsName, setEthOwnerEnsName] = useState(null);
     const [rplOwnerEnsName, setRplOwnerEnsName] = useState(null);
 
+    const [rplRefund, setRplRefund] = useState(false);
+
     const [isRplOpen, setIsRplOpen] = useState(false);
     const toggleRPLAccordion = () => {
       setIsRplOpen(!isRplOpen);
@@ -41,7 +43,7 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
         abi: RocketSplitABI.abi,
         functionName: "deploy",
         enabled: ethOwner && rplOwner && ethNumerator && ethDenominator && rplNumerator && rplDenominator,
-        args: [nodeAddress, ethOwner, rplOwner, [parseInt(ethNumerator), parseInt(ethDenominator)], [parseInt(rplNumerator), parseInt(rplDenominator)], "0xc89D42189f0450C2b2c3c61f58Ec5d628176A1E7", 0],
+        args: [nodeAddress, ethOwner, rplOwner, [parseInt(ethNumerator), parseInt(ethDenominator)], [parseInt(rplNumerator), parseInt(rplDenominator)], rplRefund],
     });
 
     const { write, data } = useContractWrite(config);
@@ -208,6 +210,10 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
                             </div>}
                         </div>
                     </div>
+                </div>
+                <div className="rocket-inputs">
+                    <label htmlFor="rpl-refund"> Send any existing RPL on this node to the previous withdrawal address: {withdrawalAddress}</label>
+                    <input type="checkbox" id="rpl-refund" name="rpl-refund" onChange={(e) => { setRplRefund(e.target.checked); }} />
                 </div>
                 <button disabled={!ethOwner || !rplOwner || !ethNumerator || !ethDenominator || !rplNumerator || !rplDenominator} onClick={() => createMarriage()}>Create Marriage</button>
                 {isSuccess && <p>Success!</p>}

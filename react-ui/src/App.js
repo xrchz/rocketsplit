@@ -30,7 +30,7 @@ import MarriageList from './components/MarriageList';
 // Add a custom chain to chains for http://127.0.0.1:8545
 const foundary = {
   ...localhost,
-  name: 'Foundary',
+  name: 'Foundry',
   id: 31337,
 }
 
@@ -89,7 +89,7 @@ function App() {
                         setPendingWithdrawalAddress={setPendingWithdrawalAddress}
                         setSplitAddress={setSplitAddress}
                         toast={toast}/>
-                      {withdrawalAddress && <WithdrawalDisplay withdrawalAddress={withdrawalAddress} toast={toast} />}
+                      {withdrawalAddress && <WithdrawalDisplay withdrawalAddress={withdrawalAddress} pendingWithdrawalAddress={pendingWithdrawalAddress} setPendingWithdrawalAddress={setPendingWithdrawalAddress} toast={toast} />}
                       {splitAddress && !pendingWithdrawalAddress && 
                         <MarriageList nodeAddress={nodeAddress} 
                           splitAddress={splitAddress}

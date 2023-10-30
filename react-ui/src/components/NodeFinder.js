@@ -21,7 +21,7 @@ const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, no
     const [ isRocketSplit, setIsRocketSplit ] = useState(false);
 
     const storageContractConfig = {
-        address: chain?.id === 5 ? process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_GOERLI : process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_MAINNET,
+        address: chain?.id === 17000 ? process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_HOLESKY : process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_MAINNET,
         abi: [{"inputs":[{"internalType":"bytes32","name":"_key","type":"bytes32"}],"name":"getAddress","outputs":[{"internalType":"address","name":"r","type":"address"}],"stateMutability":"view","type":"function"}, {"inputs":[{"internalType":"address","name":"_nodeAddress","type":"address"}],"name":"confirmWithdrawalAddress","outputs":[],"stateMutability":"nonpayable","type":"function"}]   
     };
 

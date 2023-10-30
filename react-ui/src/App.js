@@ -12,7 +12,6 @@ import {
 import { configureChains, createConfig, WagmiConfig } from 'wagmi';
 import {
   mainnet,
-  goerli,
   localhost
 } from 'wagmi/chains';
 import { alchemyProvider } from 'wagmi/providers/alchemy';
@@ -34,8 +33,29 @@ const foundary = {
   id: 31337,
 }
 
+// Add holesky support.
+const holesky = {
+  id: 17_000,
+  name: 'Holesky',
+  network: 'holesky',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'Ether',
+    symbol: 'ETH',
+  },
+  rpcUrls: {
+    public: { http: ['https://ethereum-holesky.publicnode.com'] },
+    default: { http: ['https://ethereum-holesky.publicnode.com'] },
+  },
+  blockExplorers: {
+    etherscan: { name: 'Etherscan', url: 'https://holesky.etherscan.io/' },
+    default: { name: 'Etherscan', url: 'https://holesky.etherscan.io/' },
+  }
+};
+
+
 const { chains, publicClient } = configureChains(
-  [mainnet, goerli, foundary],
+  [mainnet, holesky, foundary],
   [
     alchemyProvider({ apiKey: process.env.REACT_APP_ALCHEMY_KEY}),
     publicProvider()

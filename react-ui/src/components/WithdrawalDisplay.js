@@ -284,7 +284,7 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
 
     const { data: rplBalance } = useBalance({
         address: withdrawalAddress,
-        token: chain?.id === 5 ? "0x5e932688e81a182e3de211db6544f98b8e4f89c7" : "0xD33526068D116cE69F19A9ee46F0bd304F21A51f",
+        token: chain?.id === 17000 ? "0x1cc9cf5586522c6f483e84a19c3c2b0b6d027bf0" : "0xD33526068D116cE69F19A9ee46F0bd304F21A51f",
     });
 
     if(!withdrawalAddress){

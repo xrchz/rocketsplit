@@ -24,6 +24,8 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
     const [ethOwnerEnsName, setEthOwnerEnsName] = useState(null);
     const [rplOwnerEnsName, setRplOwnerEnsName] = useState(null);
 
+    const [rplRefund, setRplRefund] = useState(false);
+
     const [isRplOpen, setIsRplOpen] = useState(false);
     const toggleRPLAccordion = () => {
       setIsRplOpen(!isRplOpen);
@@ -37,11 +39,11 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
 
     // Setup the contract config.
     const { config } = usePrepareContractWrite({
-        address: chain?.id === 5 ? process.env.REACT_APP_ROCKETSPLIT_FACTORY_ADDRESS_GOERLI : process.env.REACT_APP_ROCKETSPLIT_FACTORY_ADDRESS_MAINNET,
+        address: chain?.id === 17000 ? process.env.REACT_APP_ROCKETSPLIT_FACTORY_ADDRESS_HOLESKY : process.env.REACT_APP_ROCKETSPLIT_FACTORY_ADDRESS_MAINNET,
         abi: RocketSplitABI.abi,
         functionName: "deploy",
         enabled: ethOwner && rplOwner && ethNumerator && ethDenominator && rplNumerator && rplDenominator,
-        args: [nodeAddress, ethOwner, rplOwner, [parseInt(ethNumerator), parseInt(ethDenominator)], [parseInt(rplNumerator), parseInt(rplDenominator)]],
+        args: [nodeAddress, ethOwner, rplOwner, [parseInt(ethNumerator), parseInt(ethDenominator)], [parseInt(rplNumerator), parseInt(rplDenominator)], rplRefund],
     });
 
     const { write, data } = useContractWrite(config);
@@ -208,6 +210,10 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
                             </div>}
                         </div>
                     </div>
+                </div>
+                <div className="rocket-inputs">
+                    <label htmlFor="rpl-refund"> Send any existing RPL on this node to the previous withdrawal address: {withdrawalAddress}</label>
+                    <input type="checkbox" id="rpl-refund" name="rpl-refund" onChange={(e) => { setRplRefund(e.target.checked); }} />
                 </div>
                 <button disabled={!ethOwner || !rplOwner || !ethNumerator || !ethDenominator || !rplNumerator || !rplDenominator} onClick={() => createMarriage()}>Create Marriage</button>
                 {isSuccess && <p>Success!</p>}

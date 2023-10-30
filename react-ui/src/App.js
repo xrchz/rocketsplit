@@ -12,7 +12,6 @@ import {
 import { configureChains, createConfig, WagmiConfig } from 'wagmi';
 import {
   mainnet,
-  goerli,
   localhost
 } from 'wagmi/chains';
 import { alchemyProvider } from 'wagmi/providers/alchemy';
@@ -30,12 +29,33 @@ import MarriageList from './components/MarriageList';
 // Add a custom chain to chains for http://127.0.0.1:8545
 const foundary = {
   ...localhost,
-  name: 'Foundary',
+  name: 'Foundry',
   id: 31337,
 }
 
+// Add holesky support.
+const holesky = {
+  id: 17_000,
+  name: 'Holesky',
+  network: 'holesky',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'Ether',
+    symbol: 'ETH',
+  },
+  rpcUrls: {
+    public: { http: ['https://ethereum-holesky.publicnode.com'] },
+    default: { http: ['https://ethereum-holesky.publicnode.com'] },
+  },
+  blockExplorers: {
+    etherscan: { name: 'Etherscan', url: 'https://holesky.etherscan.io/' },
+    default: { name: 'Etherscan', url: 'https://holesky.etherscan.io/' },
+  }
+};
+
+
 const { chains, publicClient } = configureChains(
-  [mainnet, goerli, foundary],
+  [mainnet, holesky, foundary],
   [
     alchemyProvider({ apiKey: process.env.REACT_APP_ALCHEMY_KEY}),
     publicProvider()
@@ -82,13 +102,14 @@ function App() {
                         Enter the Rocketpool node address below. You will be able to go the process of creating a marriage contract OR managing the functionality of an already setup marriage withdrawal address.
                       </p>
                       <NodeFinder setWithdrawalAddress={setWithdrawalAddress}
+                        withdrawalAddress={withdrawalAddress}
                         setNodeAddress={setNodeAddress}
                         nodeAddress={nodeAddress}
                         pendingWithdrawalAddress={pendingWithdrawalAddress}
                         setPendingWithdrawalAddress={setPendingWithdrawalAddress}
                         setSplitAddress={setSplitAddress}
                         toast={toast}/>
-                      {withdrawalAddress && <WithdrawalDisplay withdrawalAddress={withdrawalAddress} />}
+                      {withdrawalAddress && <WithdrawalDisplay withdrawalAddress={withdrawalAddress} pendingWithdrawalAddress={pendingWithdrawalAddress} setPendingWithdrawalAddress={setPendingWithdrawalAddress} toast={toast} />}
                       {splitAddress && !pendingWithdrawalAddress && 
                         <MarriageList nodeAddress={nodeAddress} 
                           splitAddress={splitAddress}

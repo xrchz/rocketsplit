@@ -50,7 +50,8 @@ const holesky = {
   blockExplorers: {
     etherscan: { name: 'Etherscan', url: 'https://holesky.etherscan.io/' },
     default: { name: 'Etherscan', url: 'https://holesky.etherscan.io/' },
-  }
+  },
+  testnet: true
 };
 
 

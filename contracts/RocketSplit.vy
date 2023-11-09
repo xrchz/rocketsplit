@@ -100,6 +100,8 @@ def setup(_nodeAddress: address,
           _ETHFee: Fee, _RPLFee: Fee,
           _refundRPL: bool):
   assert self.guardian == empty(address), "auth"
+  assert _ETHFee.numerator <= _ETHFee.denominator, "fee ETH"
+  assert _RPLFee.numerator <= _RPLFee.denominator, "fee RPL"
   self.guardian = msg.sender
   self.nodeAddress = _nodeAddress
   self.ETHOwner = _ETHOwner

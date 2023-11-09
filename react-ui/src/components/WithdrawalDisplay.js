@@ -3,7 +3,7 @@ import RocketSplitABI from '../abi/RocketSplit.json'
 import RocketStorageAddress from '../abi/RocketStorageAddress.json'
 import RocketStorage from '../abi/RocketStorage.json'
 import { useState } from 'react';
-import { keccak256, toHex } from 'viem';
+import { keccak256, toHex, zeroAddress } from 'viem';
 
 const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPendingWithdrawalAddress, toast}) => {
     const [isRocketSplit, setIsRocketSplit] = useState(false);
@@ -301,14 +301,14 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
                 {ethFee && <p>ETH Fee: <strong>{ethFee}</strong></p>}
                 {rplFee && <p>RPL Fee: <strong>{rplFee}</strong></p>}
             </div>
-            {isRocketSplit && RPLRefundee && <div>{RPLRefundee} - {RPLRefund}</div>}
+            {isRocketSplit && RPLRefundee && RPLRefundee !== zeroAddress && <div>{RPLRefundee} - {RPLRefund}</div>}
             {!isRocketSplit && <p className="not-rocketsplit">Not a RocketSplit Address</p>}
             {isRocketSplit &&
                 <>
                     <ul className="wallet-actions">
-                        {isRplOwner && <li onClick={() => {withdrawRewards?.();}}>Withdrawal Rewards</li>}
-                        {isEthOwner && <li onClick={() =>{withdrawETH?.();}}>Withdrawal ETH</li>}
-                        {isRplOwner && <li onClick={() => {withdrawRPL?.()}}>Withdrawal RPL</li>}
+                        {isRplOwner && <li onClick={() => {withdrawRewards?.();}}>Withdraw Rewards</li>}
+                        {isEthOwner && <li onClick={() =>{withdrawETH?.();}}>Withdraw ETH</li>}
+                        {isRplOwner && <li onClick={() => {withdrawRPL?.()}}>Withdraw RPL</li>}
                         <li onClick={() => {setShowStakeRplPanel(true)}}>Stake RPL</li>
                         <li onClick={() => {setNewWithdrawalAddress(null); setNewForce(false); setShowWithdrawalPanel(true)}}>Change Withdrawal Address</li>
                         <li>Change ENS Name (Coming soon)</li>

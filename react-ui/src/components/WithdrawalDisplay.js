@@ -111,8 +111,8 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
             if(result > 0 && pendingWithdrawalAddress !== pendingRpWithdrawalAddress) {
                 console.log("Showing pending withdrawal panel");
                 setShowPendingWithdrawalPanel(true);
-                setPendingRpWithdrawalAddress(result);
-            }   
+            }
+            setPendingRpWithdrawalAddress(result);
         }
     })
 

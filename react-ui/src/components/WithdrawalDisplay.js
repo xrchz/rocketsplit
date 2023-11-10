@@ -78,8 +78,8 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
         onError: (error) => console.log("Error: " + error),
         onSuccess: (result) => {
             console.log("ETH Fee");
-            console.log(result);
-            setEthFee(result.numerator / result.denominator + '%');
+            console.log((result.numerator / result.denominator)*100n);
+            setEthFee((result.numerator / result.denominator)*100n + '%');
         }
     })
 
@@ -92,8 +92,8 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
         onError: (error) => console.log("Error: " + error),
         onSuccess: (result) => {
             console.log("RPL Fee");
-            console.log(result);
-            setRplFee(result.numerator / result.denominator + '%');
+            console.log((result.numerator / result.denominator)*100n);
+            setRplFee((result.numerator / result.denominator)*100n + '%');
         }
     })
 
@@ -102,10 +102,12 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
     useContractRead({
         address: withdrawalAddress,
         abi: RocketSplitABI.abi,
-        functionName: "pendingRpWithdrawalAddress",
+        functionName: "pendingWithdrawalAddress",
         onLoading: () => console.log("Loading..."),
         onError: (error) => console.log("Error: " + error),
         onSuccess: (result) => {
+            console.log("Pending Withdrawal Address: " + result);
+            console.log("Pending RP Withdrawal Addresses: " + pendingRpWithdrawalAddress);
             if(result > 0 && pendingWithdrawalAddress !== pendingRpWithdrawalAddress) {
                 setShowPendingWithdrawalPanel(true);
             }

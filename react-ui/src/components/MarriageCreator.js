@@ -11,11 +11,11 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
     const [ethOwner, setEthOwner] = useState(null);
     const [rplOwner, setRplOwner] = useState(null);
     const [ethNumerator, setEthNumerator] = useState(1);
-    const [ethDenominator, setEthDenominator] = useState(100);
+    const [ethDenominator, setEthDenominator] = useState(10000);
     const [ethFee, setEthFee] = useState(0);
 
     const [rplNumerator, setRplNumerator] = useState(1);
-    const [rplDenominator, setRplDenominator] = useState(100);
+    const [rplDenominator, setRplDenominator] = useState(10000);
     const [rplFee, setRplFee] = useState(0);
 
     const { chain } = useNetwork();
@@ -63,14 +63,14 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
 
     useEffect(() => {
         if(ethNumerator && ethDenominator){
-            setEthFee(ethNumerator/ethDenominator);
+            setEthFee((ethNumerator/ethDenominator)*100);
         }
     }
     , [ethNumerator, ethDenominator]);
 
     useEffect(() => {
         if(rplNumerator && rplDenominator){
-            setRplFee(rplNumerator/rplDenominator);
+            setRplFee((rplNumerator/rplDenominator)*100);
         }
     }
     , [rplNumerator, rplDenominator]);
@@ -173,7 +173,7 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
                                 <label htmlFor="eth-numerator">ETH Numerator</label>
                                 <input type="number" id="eth-numerator" name="eth-numerator" value={ethNumerator} onChange={(e) => { setEthNumerator(e.target.value); }} />
                                 <label htmlFor="eth-denominator">ETH Demoninator</label>
-                                <input type="number" id="eth-denominator" name="eth-denominator" placeholder="100" min="1" onChange={(e) => { setEthDenominator(e.target.value); }} />
+                                <input type="number" id="eth-denominator" name="eth-denominator" placeholder="10000" min="1" onChange={(e) => { setEthDenominator(e.target.value); }} />
                             </div>}
                         </div>
                     </div>
@@ -206,7 +206,7 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
                                 <label htmlFor="rpl-numerator">RPL Numerator</label>
                                 <input type="number" id="rpl-numerator" name="rpl-numerator" value={rplNumerator} onChange={(e) => { setRplNumerator(e.target.value); }} />
                                 <label htmlFor="rpl-denominator">RPL Denominator</label>
-                                <input type="number" id="rpl-denominator" name="rpl-denominator" placeholder="100" min="1" onChange={(e) => { setRplDenominator(e.target.value); }} />
+                                <input type="number" id="rpl-denominator" name="rpl-denominator" placeholder="10000" min="1" onChange={(e) => { setRplDenominator(e.target.value); }} />
                             </div>}
                         </div>
                     </div>

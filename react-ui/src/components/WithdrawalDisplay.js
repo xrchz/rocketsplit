@@ -342,7 +342,7 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
                 </div>
             }
 
-            {isRocketSplit && showPendingWithdrawalPanel && pendingRpWithdrawalAddress && isRplOwner &&
+            {isRocketSplit && showPendingWithdrawalPanel && pendingRpWithdrawalAddress &&
                 <div className="sub-panel">
                     {/* Show the pending withdrawal address change and force */}
                     <h2>Confirm pending withdrawal address change</h2>

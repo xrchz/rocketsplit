@@ -109,9 +109,10 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
             console.log("Pending Withdrawal Address: " + result);
             console.log("Pending RP Withdrawal Addresses: " + pendingRpWithdrawalAddress);
             if(result > 0 && pendingWithdrawalAddress !== pendingRpWithdrawalAddress) {
+                console.log("Showing pending withdrawal panel");
                 setShowPendingWithdrawalPanel(true);
-            }
-            setPendingRpWithdrawalAddress(result);
+                setPendingRpWithdrawalAddress(result);
+            }   
         }
     })
 
@@ -341,6 +342,10 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
                     <div className="close-panel" onClick={() => {setShowWithdrawalPanel(false)}}>Cancel</div>
                 </div>
             }
+
+{isRocketSplit && showPendingWithdrawalPanel && pendingRpWithdrawalAddress && isRplOwner &&
+<>Test</>
+}
 
             {isRocketSplit &&
                 <div className="sub-panel">

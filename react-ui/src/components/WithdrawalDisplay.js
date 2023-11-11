@@ -301,8 +301,8 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
             <div className="rocket-info-grid">
                 <p>ETH Balance: <strong>{parseFloat(ethBalance?.formatted).toFixed(4)} {ethBalance?.symbol}</strong></p>
                 {rplBalance?.formatted && <p>RPL Balance: <strong>{parseFloat(rplBalance?.formatted).toFixed(4)} {rplBalance?.symbol}</strong></p>}
-                {ethFee && <p>ETH Fee: <strong>{ethFee}</strong></p>}
-                {rplFee && <p>RPL Fee: <strong>{rplFee}</strong></p>}
+                {ethFee && isRocketSplit && <p>ETH Fee: <strong>{ethFee}</strong></p>}
+                {rplFee && isRocketSplit && <p>RPL Fee: <strong>{rplFee}</strong></p>}
             </div>
             {isRocketSplit && RPLRefundee && RPLRefundee !== zeroAddress && <div>{RPLRefundee} - {RPLRefund}</div>}
             {!isRocketSplit && <p className="not-rocketsplit">Not a RocketSplit Address</p>}

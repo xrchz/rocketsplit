@@ -1,14 +1,17 @@
 import RocketStorage from '../abi/RocketStorage.json'
-import RocketStorageAddress from '../abi/RocketStorageAddress.json'
-import { useContractWrite, usePrepareContractWrite, useWaitForTransaction } from "wagmi";
+import { useContractWrite, useNetwork, usePrepareContractWrite, useWaitForTransaction } from "wagmi";
 import { useState } from 'react';
 
 const MarriageListItem = ({ nodeAddress, splitAddress, setPendingWithdrawalAddress }) => {
 
+    const { chain } = useNetwork();
+
     const [withdrawalAddressEnabled, setWithdrawalAddressEnabled] = useState(false);
 
+    const rocketStorageAddress = chain?.id === 17000 ? process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_HOLESKY : process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_MAINNET;
+
     const { config } = usePrepareContractWrite({
-        address: RocketStorageAddress,
+        address: rocketStorageAddress,
         abi: RocketStorage,
         functionName: "setWithdrawalAddress",
         args: [nodeAddress, splitAddress, false],

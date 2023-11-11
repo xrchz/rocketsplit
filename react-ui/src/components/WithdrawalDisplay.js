@@ -1,6 +1,5 @@
 import { useBalance, useContractRead, useContractWrite, useNetwork, usePrepareContractWrite, useTransaction } from 'wagmi'
 import RocketSplitABI from '../abi/RocketSplit.json'
-import RocketStorageAddress from '../abi/RocketStorageAddress.json'
 import RocketStorage from '../abi/RocketStorage.json'
 import { useState } from 'react';
 import { keccak256, toHex, zeroAddress } from 'viem';
@@ -30,6 +29,7 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
 
 
     const { chain } = useNetwork();
+    const rocketStorageAddress = chain?.id === 17000 ? process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_HOLESKY : process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_MAINNET;
 
     // // Check for pending withdrawal address change.
     // useContractRead({
@@ -58,7 +58,7 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
 
     // Read the node manager address.
     useContractRead({
-        address: RocketStorageAddress,
+        address: rocketStorageAddress,
         abi: RocketStorage,
         functionName: "getAddress",
         args: [keccak256(toHex("contract.addressrocketNodeManager"))],
@@ -78,8 +78,11 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
         onError: (error) => console.log("Error: " + error),
         onSuccess: (result) => {
             console.log("ETH Fee");
-            console.log((result.numerator / result.denominator)*100n);
-            setEthFee((result.numerator / result.denominator)*100n + '%');
+            // convert values from bigint
+            const numerator = parseInt(result.numerator);
+            const denominator = parseInt(result.denominator);
+            console.log(numerator / denominator);
+            setEthFee((numerator / denominator)*100 + '%');
         }
     })
 
@@ -92,8 +95,12 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
         onError: (error) => console.log("Error: " + error),
         onSuccess: (result) => {
             console.log("RPL Fee");
-            console.log((result.numerator / result.denominator)*100n);
-            setRplFee((result.numerator / result.denominator)*100n + '%');
+
+            // convert values from bigint
+            const numerator = parseInt(result.numerator);
+            const denominator = parseInt(result.denominator);
+            console.log(numerator / denominator);
+            setRplFee((numerator / denominator)*100 + '%');
         }
     })
 
@@ -108,7 +115,7 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
         onSuccess: (result) => {
             console.log("Pending Withdrawal Address: " + result);
             console.log("Pending RP Withdrawal Addresses: " + pendingRpWithdrawalAddress);
-            if(result > 0 && pendingWithdrawalAddress !== pendingRpWithdrawalAddress) {
+            if(result != zeroAddress && pendingWithdrawalAddress !== pendingRpWithdrawalAddress) {
                 console.log("Showing pending withdrawal panel");
                 setShowPendingWithdrawalPanel(true);
             }
@@ -343,11 +350,7 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
                 </div>
             }
 
-{isRocketSplit && showPendingWithdrawalPanel && pendingRpWithdrawalAddress && isRplOwner &&
-<>Test</>
-}
-
-            {isRocketSplit &&
+            {isRocketSplit && showPendingWithdrawalPanel && pendingRpWithdrawalAddress && isRplOwner &&
                 <div className="sub-panel">
                     {/* Show the pending withdrawal address change and force */}
                     <h2>Confirm pending withdrawal address change</h2>

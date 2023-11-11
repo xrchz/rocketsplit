@@ -52,7 +52,7 @@ const MarriageList = ({nodeAddress, splitAddress, setPendingWithdrawalAddress })
     return (
         <div className="rocket-panel">
             <h2>Pending Marriage</h2>
-            <p>Here is the marriage you just created.</p>
+            <p>Here is the marriage you just created. The next step is to set this as the withdrawal address. This needs to execute from the current withdrawal address.</p>
             <ul className="wallet-list">
                 {/* {wallets.map((wallet, i) => {
                     const decodedLogs = decodeEventLog({

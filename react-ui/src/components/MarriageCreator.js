@@ -48,7 +48,7 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
 
     const { write, data } = useContractWrite(config);
 
-    const { isSuccess, data: receipt } = useWaitForTransaction({
+    const { isSuccess, isLoading, data: receipt } = useWaitForTransaction({
         hash: data?.hash,
     });
 
@@ -159,7 +159,7 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
                             type="range"
                             min="0"
                             max={MAX}
-                            step={10}
+                            step={100}
                             onChange={(e) => setEthNumerator(e.target.value)}
                             value={ethNumerator}
                             name="eth-slider"
@@ -192,7 +192,7 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
                             type="range"
                             min="0"
                             max={MAX}
-                            step={10}
+                            step={100}
                             onChange={(e) => setRplNumerator(e.target.value)}
                             value={rplNumerator}
                             name="rpl-slider"
@@ -217,6 +217,13 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
                 </div>
                 <button disabled={!ethOwner || !rplOwner || !ethNumerator || !ethDenominator || !rplNumerator || !rplDenominator} onClick={() => createMarriage()}>Create Marriage</button>
                 {isSuccess && <p>Success!</p>}
+
+                {isLoading &&
+                    <div className="action-panel loading">
+                        <div className="spinner"></div>
+                        <p>Creating Marriage</p>
+                    </div>
+                }
             </div>
         </div>
     )

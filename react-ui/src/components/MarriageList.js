@@ -70,7 +70,7 @@ const MarriageList = ({nodeAddress, splitAddress, setPendingWithdrawalAddress, i
                             <div>RPL Owner</div>
                             <div></div>
                         </div>
-                        <div></div>
+                        <div>Set Withdrawal Address</div>
                     </div>
                 </li>
                 {wallets.map((wallet, i) => {

@@ -182,6 +182,9 @@ button {
 .split-listitem {
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
+  border-bottom: 1px solid #ccc;
+  padding: 10px;
 }
 
 .split-details {
@@ -282,6 +285,14 @@ input[type="range"]::-webkit-slider-thumb:active {
   margin-top: -12px;
   font-size: 1em;
   margin-bottom: 10px;
+}
+
+.address-display .copy-mark {
+  width: 10px;
+}
+
+.address-display .check-mark {
+  width: 15px;
 }
 
 

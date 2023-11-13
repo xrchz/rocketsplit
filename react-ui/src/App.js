@@ -81,6 +81,7 @@ function App() {
   const [pendingWithdrawalAddress, setPendingWithdrawalAddress] = useState(null);
   const [nodeAddress, setNodeAddress] = useState(null);
   const [splitAddress, setSplitAddress] = useState(null);
+  const [isRocketSplit, setIsRocketSplit] = useState(false);
 
   return (
      <WagmiConfig config={wagmiConfig}>
@@ -99,8 +100,8 @@ function App() {
                       <ConnectButton />
                     </header>
                     <div className="content">
-                      <p className="promo">
-                        Enter the Rocketpool node address below. You will be able to go the process of creating a marriage contract OR managing the functionality of an already setup marriage withdrawal address.
+                      <p className="rocket-panel">
+                      Enter your Rocketpool node address below to either create a Rocketsplit contract or manage an existing Rocketsplit withdrawal address. 🚀
                       </p>
                       <NodeFinder setWithdrawalAddress={setWithdrawalAddress}
                         withdrawalAddress={withdrawalAddress}
@@ -109,13 +110,16 @@ function App() {
                         pendingWithdrawalAddress={pendingWithdrawalAddress}
                         setPendingWithdrawalAddress={setPendingWithdrawalAddress}
                         setSplitAddress={setSplitAddress}
+                        isRocketSplit={isRocketSplit}
+                        setIsRocketSplit={setIsRocketSplit}
                         toast={toast}/>
                       {withdrawalAddress && <WithdrawalDisplay withdrawalAddress={withdrawalAddress} pendingWithdrawalAddress={pendingWithdrawalAddress} setPendingWithdrawalAddress={setPendingWithdrawalAddress} toast={toast} />}
                       {splitAddress && !pendingWithdrawalAddress && 
                         <MarriageList nodeAddress={nodeAddress} 
                           splitAddress={splitAddress}
                           setPendingWithdrawalAddress={setPendingWithdrawalAddress}
-                          setWithdrawalAddress={setWithdrawalAddress}/>
+                          setWithdrawalAddress={setWithdrawalAddress}
+                          isRocketSplit={isRocketSplit}/>
                       }
                       {!splitAddress &&
                         <MarriageCreator withdrawalAddress={withdrawalAddress} 

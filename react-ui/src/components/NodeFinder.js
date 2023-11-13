@@ -4,7 +4,7 @@ import RocketSplitABI from "../abi/RocketSplit.json";
 import { useAccount, useContractRead, useContractWrite, useNetwork, usePrepareContractWrite, usePublicClient, useWaitForTransaction } from "wagmi";
 import { normalize } from "viem/ens";
 
-const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, nodeAddress, toast, pendingWithdrawalAddress, setPendingWithdrawalAddress, setSplitAddress}) => {
+const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, nodeAddress, toast, pendingWithdrawalAddress, setPendingWithdrawalAddress, setSplitAddress, isRocketSplit, setIsRocketSplit}) => {
 
     const [ nodeManagerAddress, setNodeManagerAddress ] = useState(null);
     const [ nodeManagerFunction, setNodeManagerFunction ] = useState(null);
@@ -18,7 +18,8 @@ const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, no
     const publicClient = usePublicClient();
     const { address } = useAccount();
     const { chain } = useNetwork();
-    const [ isRocketSplit, setIsRocketSplit ] = useState(false);
+
+    const [toRocketSplit, setToRocketSplit] = useState(false);
 
     const storageContractConfig = {
         address: chain?.id === 17000 ? process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_HOLESKY : process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_MAINNET,
@@ -42,17 +43,16 @@ const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, no
     })
 
     // We need to know if the pendingWithdrawalAddress is a Rocketsplit address,
-    //  if not we can call directly to the storage contract as long as we are connected as the pending address.
-    // We are doing this twice (WithdrawalDisplay does it too), we may want to share this.
+    // If not we can call directly to the storage contract as long as we are connected as the pending address.
     useContractRead({
         abi: RocketSplitABI.abi,
         address: pendingWithdrawalAddress,
         functionName: "guardian",
         onLoading: () => console.log("Loading..."),
-        onError: (error) => setIsRocketSplit(false),
+        onError: (error) => setToRocketSplit(false),
         onSuccess: (result) => {
-            console.log("Result: " + result);
-            setIsRocketSplit(true)
+            console.log("Do we have a rocket split address?: " + result);
+            setToRocketSplit(true)
         }
     });
 
@@ -81,7 +81,7 @@ const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, no
                     break;
                 case "getNodePendingWithdrawalAddress":
                     console.log("Node pending withdrawal address: " + result);
-                    console.log("Withdrawal address: " + withdrawalAddress)
+                    console.log("Withdrawal addresses: " + withdrawalAddress)
                     if(result !== emptyAddress && result !== withdrawalAddress) {
                         setPendingWithdrawalAddress(result);
                     }
@@ -114,7 +114,7 @@ const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, no
     });
 
     const { write: confirmWithdrawalAddress, data: confirmWithdrawalAddressData } = useContractWrite(config);
-    const { isSuccess } = useWaitForTransaction({
+    const { isSuccess, isLoading } = useWaitForTransaction({
         hash: confirmWithdrawalAddressData?.hash,
         onLoading: () => console.log("Loading..."),
         onError: (error) => console.log("Error: " + error),
@@ -131,7 +131,7 @@ const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, no
     });
 
     const { write: confirmNonRPWithdrawalAddress, data: confirmNonRPWithdrawalAddressData } = useContractWrite(confirmWithdrawalConfig);
-    useWaitForTransaction({
+    const { isLoading: loadingNonRPChange} = useWaitForTransaction({
         hash: confirmNonRPWithdrawalAddressData?.hash,
         onLoading: () => console.log("Loading..."),
         onError: (error) => console.log("Error: " + error),
@@ -191,6 +191,8 @@ const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, no
     // eslint-disable-next-line react-hooks/exhaustive-deps
     , [isSuccess]);
 
+    console.log("The current widhtdrawal address is: " + isRocketSplit);
+
     return(
         <div className="rocket-panel">
             <h2>Enter Rocketpool Node Address:</h2>
@@ -198,11 +200,25 @@ const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, no
             <span>{ensName}</span>
             <button disabled={!address || !nodeAddress} onClick={() => lookupWithdrawal()}>Submit</button>
             {address ? <></> : <>Connect you wallet to get started.</>}
-            {pendingWithdrawalAddress && isRocketSplit &&
+            {pendingWithdrawalAddress && toRocketSplit &&
                 <div className="sub-panel"><p>Pending Node Withdrawal Address Change, <strong>migrating to Rocketsplit 🚀</strong> {pendingWithdrawalAddress}</p><button className="btn-action" onClick = {() => { confirmWithdrawalAddress?.() }}>Confirm Change</button></div>
             }
-            {pendingWithdrawalAddress && !isRocketSplit && // @TODO: need to ensure account connected is new withdrawal.
+            {pendingWithdrawalAddress && !toRocketSplit && pendingWithdrawalAddress === address && // @TODO: need to ensure account connected is new withdrawal. */}
                 <div className="sub-panel"><p>Pending Node Withdrawal Address Change NOT Rocketsplit: {pendingWithdrawalAddress}</p><button className="btn-action" onClick = {() => { confirmNonRPWithdrawalAddress?.() }}>Confirm Change</button></div>
+            }
+
+            {loadingNonRPChange &&
+              <div className="action-panel loading">
+                    <div className="spinner"></div>
+                    <p>Confirming Withdrawal Change</p>
+             </div>
+            }
+
+            {isLoading &&
+                <div className="action-panel loading">
+                    <div className="spinner"></div>
+                    <p>Migrating to Rocketsplit 🚀</p>
+                </div>
             }
         </div>
     )

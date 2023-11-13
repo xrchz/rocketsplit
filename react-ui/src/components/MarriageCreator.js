@@ -142,13 +142,13 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
 
     return (
         <div className="rocket-panel">
-            <h2>Marriage Creator</h2>
+            <h2>Rocketsplit Creator</h2>
             {/* Input with ETH Owner and RPL Owner */}
             <div>
                 <div className="rocket-inputs">
                     <div className="owner-input">
-                      The ETH owner is the one that is bringing the ETH to the table. This section defines the fee they will charge in RPL for the use of their ETH.
-                      <p>The fee is set to: <strong>~{parseFloat(ethFee.toFixed(2))}</strong> %</p>
+                      This percentage of ETH rewards paid to the RPL owner.
+                      <p>The is set to: <strong>~{parseFloat(ethFee.toFixed(2))}</strong> %</p>
                     </div>
                     <div className="fee-inputs">
                         <label htmlFor="eth-owner">ETH Owner Address</label>
@@ -180,8 +180,8 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
                 </div>
                 <div className="rocket-inputs">
                     <div className="owner-input">
-                        The RPL owner is the one bringing the RPL to the table. This section defines the fee they will charge in ETH for the use of their RPL.
-                        <p>The fee is set to: <strong>~{parseFloat(rplFee.toFixed(2))}</strong> %</p>
+                        This percentage of RPL rewards paid to the ETH owner.
+                        <p>The is set to: <strong>~{parseFloat(rplFee.toFixed(2))}</strong> %</p>
                     </div>
                     <div className="fee-inputs">
                         <label htmlFor="rplOwner">RPL Owner Address</label>

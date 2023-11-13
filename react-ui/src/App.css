@@ -2,10 +2,6 @@ body {
   background: rgb(239, 236, 236);
 }
 
-.app {
-  text-align: center;
-}
-
 .header {
   display: flex;
   justify-content: space-between;
@@ -188,6 +184,20 @@ button {
   flex-direction: column;
 }
 
+.split-details {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #201b23;
+  cursor: pointer;
+}
+
+.split-details .btn-action {
+  flex: .2;
+  margin-top: 0;
+}
+
 .not-rocketsplit {
   color: red;
   padding: 10px;
@@ -273,6 +283,8 @@ input[type="range"]::-webkit-slider-thumb:active {
   font-size: 1em;
   margin-bottom: 10px;
 }
+
+
 
 
 

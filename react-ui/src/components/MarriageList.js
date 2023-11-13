@@ -1,71 +1,90 @@
 // A list of marriages created.
+import { useAccount, useNetwork, usePublicClient } from 'wagmi';
 import MarriageListItem from './MarriageListItem';
+import { useEffect, useState } from 'react';
+import RocketSplitABI from '../abi/RocketSplit.json'
+import { decodeEventLog } from 'viem';
 
-const MarriageList = ({nodeAddress, splitAddress, setPendingWithdrawalAddress }) => {
+const MarriageList = ({nodeAddress, splitAddress, setPendingWithdrawalAddress, isRocketSplit }) => {
 
-    // const publicClient =  usePublicClient();
-    // const { address } = useAccount();
+    const publicClient =  usePublicClient();
+    const { address } = useAccount();
+    const { chain } = useNetwork();
+    const [wallets, setWallets] = useState([]);
+    const rocketSplitFactoryAddress = chain?.id === 17000 ? process.env.REACT_APP_ROCKETSPLIT_FACTORY_ADDRESS_HOLESKY : process.env.REACT_APP_ROCKETSPLIT_FACTORY_ADDRESS_MAINNET;
 
-    // const [wallets, setWallets] = useState([]);
 
-    // useEffect(() => {
+    useEffect(() => {
 
-    //     const fetchLogs = async () => {
+        const fetchLogs = async () => {
 
-    //         // In the RocektsplitABI.abi, filter the DeployRocketSplit event into a single object.
-    //         const deployEvent = RocketsplitABI.abi.filter((item) => {
-    //             return item.name === "DeployRocketSplit";
-    //         })[0];
+            const latestBlock = await publicClient.getBlockNumber();
+            const pastBlock = latestBlock - BigInt(5000);
 
-    //         publicClient.getLogs({
-    //             address: RocketSplitFactoryAddress,
-    //             event: deployEvent,
-    //             args: {
-    //                 node: nodeAddress,
-    //                 ethOwner: address,
-    //             },
-    //         }).then((logs) => {
-    //             console.log("We have logs!");
-    //             console.log(logs);
-    //             setWallets(logs);
-    //         }).catch((error) => {
-    //             throw error;
-    //         });
-    //     }
+            // In the RocektsplitABI.abi, filter the DeployRocketSplit event into a single object.
+            const deployEvent = RocketSplitABI.abi.filter((item) => {
+                return item.name === "DeployRocketSplit";
+            })[0];
 
-    //     if(nodeAddress && address) {
-    //         console.log("Our node address is: " + nodeAddress);
-    //         fetchLogs().catch((error) => {
-    //             console.log(error);
-    //         });
-    //     }
+            publicClient.getLogs({
+                address: rocketSplitFactoryAddress,
+                event: deployEvent,
+                args: {
+                    node: nodeAddress,
+                },
+                fromBlock: pastBlock,
+                toBlock: latestBlock,
+            }).then((logs) => {
+                console.log("We have our logs")
+                console.log(logs);
+                setWallets(logs);
+            }).catch((error) => {
+                throw error;
+            });
+        }
+        if(nodeAddress && address) {
+            console.log("Our node address is: " + nodeAddress);
+            console.log("Fetching logs for our node");
+            fetchLogs().catch((error) => {
+                console.log("Error fetching logs")
+                console.log(error);
+            });
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [nodeAddress, address]);
 
-    //     //console.log(logs);
-    // }, [nodeAddress, address]);
-
-    // if(!wallets || wallets.length == 0){
-    //     return null;
-    // }
-
-    // @TODO if the current withdrawal address is a rocketsplit address... then we need to call the method on that contract.
 
     return (
         <div className="rocket-panel">
-            <h2>Pending Marriage</h2>
-            <p>Here is the marriage you just created. The next step is to set this as the withdrawal address. This needs to execute from the current withdrawal address.</p>
+            <h2>Pending Rocketsplits</h2>
+            <p>Last created Rocketsplit Address:</p>
             <ul className="wallet-list">
-                {/* {wallets.map((wallet, i) => {
+                <li className="split-listitem">
+                    <div className="split-details">
+                        <div>Rocketsplit Address</div>
+                        <div>
+                            <div>ETH Owner</div>
+                            <div></div>
+                        </div>
+                        <div>
+                            <div>RPL Owner</div>
+                            <div></div>
+                        </div>
+                        <div></div>
+                    </div>
+                </li>
+                {wallets.map((wallet, i) => {
                     const decodedLogs = decodeEventLog({
-                        abi: RocketsplitABI.abi,
+                        abi: RocketSplitABI.abi,
                         data: wallet.data,
                         topics: wallet.topics,
                     });
-                    return <MarriageListItem key={i} splitAddress={decodedLogs.args.self} nodeAddress={nodeAddress}/>
-                })} */}
-                <MarriageListItem 
+                    return <MarriageListItem key={i} splitAddress={decodedLogs.args.self} nodeAddress={nodeAddress} marriageDetails={decodedLogs} setPendingWithdrawalAddress={setPendingWithdrawalAddress} isRocketSplit={isRocketSplit}/>
+                })}
+                {/* <MarriageListItem 
                     nodeAddress={nodeAddress} 
                     splitAddress={splitAddress} 
-                    setPendingWithdrawalAddress={setPendingWithdrawalAddress}/>
+                    setPendingWithdrawalAddress={setPendingWithdrawalAddress}/> */}
             </ul>
         </div>
     )

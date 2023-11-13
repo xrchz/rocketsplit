@@ -27,6 +27,7 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
     const [RPLRefundee, setRPLRefundee] = useState(null);
     const [RPLRefund, setRPLRefund] = useState(null);
 
+    const [isLoading, setIsLoading] = useState(true);
 
     const { chain } = useNetwork();
     const rocketStorageAddress = chain?.id === 17000 ? process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_HOLESKY : process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_MAINNET;
@@ -53,6 +54,7 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
         onSuccess: (result) => {
             console.log("Result: " + result);
             setIsRocketSplit(true)
+            setIsLoading(false);
         }
     });
 
@@ -217,7 +219,7 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
     const {write: changeWithdrawalAddress, data: changeWithdrawalAddressData} = useContractWrite(changeWithdrawalConfig);
 
     // Listen for a successfull (or failed) transaction.
-    useTransaction({
+    const {isLoading: setPendingChangeLoading } = useWaitForTransaction({
         hash: changeWithdrawalAddressData?.hash,
         onLoading: () => console.log("Loading..."),
         onError: (error) => console.log("Error: " + error),
@@ -310,16 +312,16 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
         <div className="rocket-panel">
             <h2>Current Withdrawal Address:</h2>
             <p>{withdrawalAddress}</p>
-            {isRocketSplit && <><p className="is-rocketsplit">🚀 A RocketSplit Address</p></>}
+            {isRocketSplit && !isLoading && <><p className="is-rocketsplit">🚀 A RocketSplit Address</p></>}
             <div className="rocket-info-grid">
                 <p>ETH Balance: <strong>{parseFloat(ethBalance?.formatted).toFixed(4)} {ethBalance?.symbol}</strong></p>
                 {rplBalance?.formatted && <p>RPL Balance: <strong>{parseFloat(rplBalance?.formatted).toFixed(4)} {rplBalance?.symbol}</strong></p>}
                 {ethFee && isRocketSplit && <p>ETH Fee: <strong>{ethFee}</strong></p>}
                 {rplFee && isRocketSplit && <p>RPL Fee: <strong>{rplFee}</strong></p>}
             </div>
-            {isRocketSplit && RPLRefundee && RPLRefundee !== zeroAddress && <div>{RPLRefundee} - {RPLRefund}</div>}
-            {!isRocketSplit && <p className="not-rocketsplit">Not a RocketSplit Address</p>}
-            {isRocketSplit &&
+            {isRocketSplit && !isLoading && RPLRefundee && RPLRefundee !== zeroAddress && <div>{RPLRefundee} - {RPLRefund}</div>}
+            {!isRocketSplit && !isLoading && <p className="not-rocketsplit">Not a RocketSplit Address</p>}
+            {isRocketSplit && !isLoading &&
                 <>
                     <ul className="wallet-actions">
                         {isRplOwner && <li onClick={() => {withdrawRewards?.();}}>Withdraw Rewards</li>}
@@ -332,7 +334,7 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
                 </>
             }
 
-            {isRocketSplit && showWithdrawalPanel &&
+            {isRocketSplit && showWithdrawalPanel && !isLoading &&
                 <div className="action-panel">
                     <h2>Set pending withdrawal address change</h2>
                     <p>This transaction will set the withdrawal address into a pending state within the current Rocketsplit withdrawal address. After this is complete, the RPL owner will need to confirm to set the nodes pending withdrawal address.</p>
@@ -388,6 +390,13 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
             }
 
             {withdrawalChangeLoading &&
+                <div className="action-panel loading">
+                    <div className="spinner"></div>
+                    <p>Setting pending withdrawal change.</p>
+                </div>
+            }
+
+            {setPendingChangeLoading &&
                 <div className="action-panel loading">
                     <div className="spinner"></div>
                     <p>Setting pending withdrawal change.</p>

@@ -50,9 +50,6 @@ const MarriageListItem = ({ nodeAddress, splitAddress, setPendingWithdrawalAddre
     //         </li>
     // )
 
-    console.log("Marriage Details");
-    console.log(marriageDetails);
-    console.log(isRocketSplit);
     return (
         <li className="split-listitem">
             {isRocketSplit && <strong>Current withdrawal is a rocketsplit address.</strong>}

@@ -33,8 +33,8 @@ const AddressDisplay = ({address}) => {
             <span>{address.substring(0, 4)}</span>
             <span>...</span>
             <span>{address.substring(address.length - 4, address.length)}</span>
-            {copied && <span style={{ marginLeft: '5px', color: 'green' }}>Copied!</span>}
-            {!copied && <span style={{ marginLeft: '5px' }}>Copy</span>}
+            {copied && <span style={{ marginLeft: '5px', color: 'green' }}><img className="check-mark" alt="Address Copied" src="check-mark.svg"></img></span>}
+            {!copied && <span style={{ marginLeft: '5px' }}><img className="copy-mark" alt="Copy Address" src="copy-icon.svg"></img></span>}
         </div>
     )
 }

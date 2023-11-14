@@ -19,7 +19,7 @@ const MarriageList = ({nodeAddress, splitAddress, setPendingWithdrawalAddress, i
         const fetchLogs = async () => {
 
             const latestBlock = await publicClient.getBlockNumber();
-            const pastBlock = latestBlock - BigInt(5000);
+            const pastBlock = latestBlock - BigInt(5000);   // @TODO: probably should make this variable.
 
             // In the RocektsplitABI.abi, filter the DeployRocketSplit event into a single object.
             const deployEvent = RocketSplitABI.abi.filter((item) => {
@@ -36,7 +36,8 @@ const MarriageList = ({nodeAddress, splitAddress, setPendingWithdrawalAddress, i
                 toBlock: latestBlock,
             }).then((logs) => {
                 console.log("We have our logs")
-                console.log(logs);
+                // Reverse the ordering of the logs so the most recent is first.
+                logs.reverse();
                 setWallets(logs);
             }).catch((error) => {
                 throw error;
@@ -51,28 +52,14 @@ const MarriageList = ({nodeAddress, splitAddress, setPendingWithdrawalAddress, i
             });
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [nodeAddress, address]);
+    }, [nodeAddress, address, splitAddress]);
 
 
     return (
         <div className="rocket-panel">
             <h2>Pending Rocketsplits</h2>
-            <p>Last created Rocketsplit Address:</p>
-            <ul className="wallet-list">
-                <li className="split-listitem">
-                    <div className="split-details">
-                        <div>Rocketsplit Address</div>
-                        <div>
-                            <div>ETH Owner</div>
-                            <div></div>
-                        </div>
-                        <div>
-                            <div>RPL Owner</div>
-                            <div></div>
-                        </div>
-                        <div>Set Withdrawal Address</div>
-                    </div>
-                </li>
+            <p>Last created Rocketsplit Address(s):</p>
+            <div className="wallet-list">
                 {wallets.map((wallet, i) => {
                     const decodedLogs = decodeEventLog({
                         abi: RocketSplitABI.abi,
@@ -81,11 +68,8 @@ const MarriageList = ({nodeAddress, splitAddress, setPendingWithdrawalAddress, i
                     });
                     return <MarriageListItem key={i} splitAddress={decodedLogs.args.self} nodeAddress={nodeAddress} marriageDetails={decodedLogs} setPendingWithdrawalAddress={setPendingWithdrawalAddress} isRocketSplit={isRocketSplit}/>
                 })}
-                {/* <MarriageListItem 
-                    nodeAddress={nodeAddress} 
-                    splitAddress={splitAddress} 
-                    setPendingWithdrawalAddress={setPendingWithdrawalAddress}/> */}
-            </ul>
+                {wallets.length === 0 && <div className="rocket-info-grid">No Rocketsplit addresses found, create one below.</div>}
+            </div>
         </div>
     )
 }

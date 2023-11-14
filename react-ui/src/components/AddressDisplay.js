@@ -1,7 +1,7 @@
 // Simple component that shows the first 4 and last 4 characters of an address. 
 import { useState } from "react";
 
-const AddressDisplay = ({address}) => {
+const AddressDisplay = ({address, label}) => {
 
     const [copied, setCopied] = useState(false);
 
@@ -29,13 +29,16 @@ const AddressDisplay = ({address}) => {
     
 
     return (
-        <div className="address-display" onClick={handleClick}>
-            <span>{address.substring(0, 4)}</span>
-            <span>...</span>
-            <span>{address.substring(address.length - 4, address.length)}</span>
-            {copied && <span style={{ marginLeft: '5px', color: 'green' }}><img className="check-mark" alt="Address Copied" src="check-mark.svg"></img></span>}
-            {!copied && <span style={{ marginLeft: '5px' }}><img className="copy-mark" alt="Copy Address" src="copy-icon.svg"></img></span>}
-        </div>
+        <>
+            <div className="label">{label}</div>
+            <div className="address-display" onClick={handleClick}>
+                <span>{address.substring(0, 4)}</span>
+                <span>...</span>
+                <span>{address.substring(address.length - 4, address.length)}</span>
+                {copied && <span style={{ marginLeft: '5px', color: 'green' }}><img className="check-mark" alt="Address Copied" src="check-mark.svg"></img></span>}
+                {!copied && <span style={{ marginLeft: '5px' }}><img className="copy-mark" alt="Copy Address" src="copy-icon.svg"></img></span>}
+            </div>
+        </>
     )
 }
 

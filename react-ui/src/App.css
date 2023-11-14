@@ -83,6 +83,7 @@ body {
   background-color: #d4d1d1;
   padding: 20px;
   border: 1px solid #e8e6e6;
+  border-radius: 5px;
 }
 
 .action-panel {
@@ -122,6 +123,7 @@ body {
 .loading {
   opacity: .95;
   align-items: center;
+  z-index: 100;
 }
 
 .loading .spinner {
@@ -141,6 +143,7 @@ body {
   background-color: rgba(204, 0, 0, .9);
   color: white;
   padding: 30px;
+  border-radius: 5px;
 }
 
 .fee-inputs {
@@ -161,6 +164,8 @@ button {
 .wallet-list {
   margin: 10px 0;
   padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
 }
 
 .btn-action {
@@ -179,26 +184,65 @@ button {
   color: white;
 }
 
+
+
 .split-listitem {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  border-bottom: 1px solid #ccc;
   padding: 10px;
 }
 
 .split-details {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px;
+  display: grid;
+  grid-template-columns: 1fr;
   border: 1px solid #201b23;
   cursor: pointer;
+  border-radius: 6px;
+}
+
+.split-details .rocketsplit-address {
+  background-color: #2D2C2C;
+  color: white;
+  border-radius: 5px 5px 0px 0px;
+  padding: 10px;
+}
+
+.split-details .rocketsplit-address span {
+  font-size: 1.6em;
+}
+
+.split-details .rocketsplit-address .copy-mark {
+  filter: invert(1);
+}
+
+.split-details .label {
+  font-size: .8em;
+}
+
+.split-details .rocket-info-grid {
+  /* Should span two columns in grid */
+  grid-column: 1 / 3;
+
+}
+
+.split-details .rocketsplit-partner {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  border-radius: 5px;
+  padding: 10px;
+  background-color: #f3f3f3;
+  margin: 10px;
 }
 
 .split-details .btn-action {
   flex: .2;
   margin-top: 0;
+  width: 80%;
+  margin: 0 auto;
+  margin-bottom: 10px;
+  border-radius: 5px;
 }
 
 .not-rocketsplit {
@@ -211,6 +255,7 @@ button {
   color: #32a700;
   padding: 10px;
   border: 1px solid #32a700;
+  border-radius: 5px;
 }
 
 .wallet-actions {
@@ -227,6 +272,7 @@ button {
   padding: 10px;
   border: 1px solid #201b23;
   cursor: pointer;
+  border-radius: 5px;
 }
 
 .wallet-actions li:hover {

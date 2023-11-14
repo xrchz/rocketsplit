@@ -230,7 +230,7 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
             setPendingRpWithdrawalAddress(newWidthdrawalAddress);
             setPendingForce(newForce);
 
-            if(!newForce) {
+            if(newForce) {
                 setPendingWithdrawalAddress(newWidthdrawalAddress);
             }
         }
@@ -253,17 +253,15 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
 
     const {isLoading: withdrawalChangeLoading } = useWaitForTransaction({
         hash: confirmChangeWithdrawalAddressData?.hash,
-    });
-
-    useTransaction({
-        hash: confirmChangeWithdrawalAddressData?.hash,
         onLoading: () => console.log("Loading..."),
         onError: (error) => console.log("Error: " + error),
         onSuccess: (result) => {
             console.log("Successfully changed withdrawal address to pending state");
             setShowPendingWithdrawalPanel(false);
+            setPendingWithdrawalAddress(pendingRpWithdrawalAddress);
         }
     });
+
 
     const { config: stakeRPLConfig } = usePrepareContractWrite({
         address: withdrawalAddress,
@@ -325,10 +323,10 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
                 <>
                     <ul className="wallet-actions">
                         {isRplOwner && <li onClick={() => {withdrawRewards?.();}}>Withdraw Rewards</li>}
-                        {isEthOwner && <li onClick={() =>{withdrawETH?.();}}>Withdraw ETH</li>}
-                        {isRplOwner && <li onClick={() => {withdrawRPL?.()}}>Withdraw RPL</li>}
                         {isRplOwner && <li onClick={() => {setShowStakeRplPanel(true)}}>Stake RPL</li>}
                         {isEthOwner &&<li onClick={() => {setNewWithdrawalAddress(null); setNewForce(false); setShowWithdrawalPanel(true)}}>Change Withdrawal Address</li>}
+                        {isEthOwner && <li onClick={() =>{withdrawETH?.();}}>Withdraw ETH (After Exit and RPL Withdrawal)</li>}
+                        {isRplOwner && <li onClick={() => {withdrawRPL?.()}}>Withdraw RPL (After Exit)</li>}
                         {(isEthOwner || isRplOwner) && <li>Change ENS Name (Coming soon)</li>}
                     </ul>
                 </>
@@ -360,7 +358,7 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
 
 
 
-            {isRocketSplit && showPendingWithdrawalPanel && pendingRpWithdrawalAddress && isRplOwner &&
+            {isRocketSplit && showPendingWithdrawalPanel && pendingRpWithdrawalAddress && isRplOwner && pendingRpWithdrawalAddress !== zeroAddress &&
                 <div className="sub-panel">
                     {/* Show the pending withdrawal address change and force */}
                     <h2>Confirm pending withdrawal address change</h2>
@@ -399,7 +397,7 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
             {setPendingChangeLoading &&
                 <div className="action-panel loading">
                     <div className="spinner"></div>
-                    <p>Setting pending withdrawal change.</p>
+                    <p>Confirming pending withdrawal change.</p>
                 </div>
             }
 

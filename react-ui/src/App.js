@@ -113,16 +113,20 @@ function App() {
                         isRocketSplit={isRocketSplit}
                         setIsRocketSplit={setIsRocketSplit}
                         toast={toast}/>
-                      {withdrawalAddress && 
-                        <WithdrawalDisplay withdrawalAddress={withdrawalAddress} pendingWithdrawalAddress={pendingWithdrawalAddress} setPendingWithdrawalAddress={setPendingWithdrawalAddress} toast={toast} />
+                      {withdrawalAddress &&
+                        <WithdrawalDisplay
+                          withdrawalAddress={withdrawalAddress}
+                          pendingWithdrawalAddress={pendingWithdrawalAddress}
+                          setPendingWithdrawalAddress={setPendingWithdrawalAddress}
+                          toast={toast} />
                       }
-                      {/* {splitAddress && !pendingWithdrawalAddress &&  */}
+                      {withdrawalAddress && 
                         <MarriageList nodeAddress={nodeAddress} 
                           splitAddress={splitAddress}
                           setPendingWithdrawalAddress={setPendingWithdrawalAddress}
                           setWithdrawalAddress={setWithdrawalAddress}
                           isRocketSplit={isRocketSplit}/>
-                      {/* } */}
+                       }
                       {!splitAddress &&
                         <MarriageCreator withdrawalAddress={withdrawalAddress} 
                           nodeAddress={nodeAddress} 

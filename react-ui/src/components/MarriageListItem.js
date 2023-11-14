@@ -50,18 +50,19 @@ const MarriageListItem = ({ nodeAddress, splitAddress, setPendingWithdrawalAddre
     //         </li>
     // )
 
+
     return (
         <li className="split-listitem">
             {isRocketSplit && <strong>Current withdrawal is a rocketsplit address.</strong>}
             <div className="split-details">
-                <div><AddressDisplay address={splitAddress}/></div>
-                <div>
-                    <div><AddressDisplay address={marriageDetails.args.ETHOwner}/></div>
-                    <div>~{((parseInt(marriageDetails.args.ETHFee.numerator) / parseInt(marriageDetails.args.ETHFee.denominator))*100).toFixed(2)}%</div>
+                <div className="rocketsplit-address"><AddressDisplay label="Rocketsplit Address:" address={splitAddress}/></div>
+                <div className="rocketsplit-partner">
+                    <div><AddressDisplay label="ETH Owner" address={marriageDetails.args.ETHOwner}/></div>
+                    <div><div className="label">ETH %</div>~{((parseInt(marriageDetails.args.ETHFee.numerator) / parseInt(marriageDetails.args.ETHFee.denominator))*100).toFixed(2)}%</div>
                 </div>
-                <div>
-                   <div><AddressDisplay address={marriageDetails.args.RPLOwner}/></div>
-                    <div>~{((parseInt(marriageDetails.args.RPLFee.numerator) / parseInt(marriageDetails.args.RPLFee.denominator))*100).toFixed(2)}%</div>
+                <div className="rocketsplit-partner">
+                   <div><AddressDisplay label="RPL Owner" address={marriageDetails.args.RPLOwner}/></div>
+                    <div><div className="label">RPL %</div>~{((parseInt(marriageDetails.args.RPLFee.numerator) / parseInt(marriageDetails.args.RPLFee.denominator))*100).toFixed(2)}%</div>
                 </div>
                 <button className="btn-action" onClick={() => {console.log("set withdrawal"); setWithdrawalAddress?.()}}>Set Withdrawal Address</button>
                 {isLoading &&<div className="action-panel loading"> <div className="spinner"></div><p>Changing withdrawal address</p></div>}

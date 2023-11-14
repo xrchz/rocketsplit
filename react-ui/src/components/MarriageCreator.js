@@ -52,6 +52,20 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
         hash: data?.hash,
     });
 
+    if(isSuccess) {
+        // Parse the event logs.
+        const decodedLogs = decodeEventLog({
+            abi: RocketSplitABI.abi,
+            data: receipt?.logs[0].data,
+            topics: receipt?.logs[0].topics,
+        });
+
+        console.log("Marriage created, congrats!");
+
+        // Pass the decoded log up to the parent.
+        setSplitAddress(decodedLogs.args.self);
+    }
+
     const createMarriage = async () => {
         // Let's create a marriage contract.
         console.log("Creating marriage contract.");
@@ -63,14 +77,30 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
 
     useEffect(() => {
         if(ethNumerator && ethDenominator){
-            setEthFee((ethNumerator/ethDenominator)*100);
+            const fee = (ethNumerator/ethDenominator)*100;
+            // If fee is > 100 then show an error.
+            if(fee > 100) {
+                //alert("ETH Fee cannot be greater than 100%");
+                setEthNumerator(1);
+                setEthDenominator(10000);
+            }
+            setEthFee(fee);
         }
     }
     , [ethNumerator, ethDenominator]);
 
     useEffect(() => {
         if(rplNumerator && rplDenominator){
-            setRplFee((rplNumerator/rplDenominator)*100);
+
+            const fee = (rplNumerator/rplDenominator)*100;
+            // If fee is > 100 then show an error.
+            if(fee > 100) {
+                //alert("RPL Fee cannot be greater than 100%");
+                setRplNumerator(1);
+                setRplDenominator(10000);
+            }
+
+            setRplFee(fee);
         }
     }
     , [rplNumerator, rplDenominator]);
@@ -126,18 +156,6 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
 
     if(!withdrawalAddress){
         return null;
-    }
-
-    if(isSuccess) {
-        // Parse the event logs.
-        const decodedLogs = decodeEventLog({
-            abi: RocketSplitABI.abi,
-            data: receipt?.logs[0].data,
-            topics: receipt?.logs[0].topics,
-        });
-
-        // Pass the decoded log up to the parent.
-        setSplitAddress(decodedLogs.args.self);
     }
 
     return (

@@ -22,6 +22,12 @@ interface RocketNodeStakingInterface:
   def getNodeRPLStake(_nodeAddress: address) -> uint256: view
   def stakeRPLFor(_nodeAddress: address, _amount: uint256): nonpayable
 
+interface RocketNodeDistributorFactoryInterface:
+  def getProxyAddress(_nodeAddress: address) -> address: view
+
+interface RocketNodeDistributorInterface:
+  def distribute(): nonpayable
+
 interface RocketMerkleDistributorInterface:
   def claim(_nodeAddress: address,
             _rewardIndex: DynArray[uint256, MAX_INTERVALS],
@@ -47,11 +53,13 @@ ensRegAddress: constant(address) = 0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e
 rocketNodeStakingKey: constant(bytes32) = keccak256("contract.addressrocketNodeStaking")
 rocketTokenRPLKey: constant(bytes32) = keccak256("contract.addressrocketTokenRPL")
 rocketMerkleDistributorKey: constant(bytes32) = keccak256("contract.addressrocketMerkleDistributorMainnet")
+rocketNodeDistributorFactoryKey: constant(bytes32) = keccak256("contract.addressrocketNodeDistributorFactory")
 rocketStorage: immutable(RocketStorageInterface)
 RPLToken: immutable(RPLInterface)
 
 guardian: public(address)
 nodeAddress: public(address)
+distributor: public(RocketNodeDistributorInterface)
 ETHOwner: public(address)
 RPLOwner: public(address)
 pendingWithdrawalAddress: public(address)
@@ -100,8 +108,15 @@ def setup(_nodeAddress: address,
           _ETHFee: Fee, _RPLFee: Fee,
           _refundRPL: bool):
   assert self.guardian == empty(address), "auth"
+  assert _ETHFee.numerator <= _ETHFee.denominator, "fee ETH"
+  assert _RPLFee.numerator <= _RPLFee.denominator, "fee RPL"
   self.guardian = msg.sender
   self.nodeAddress = _nodeAddress
+  self.distributor = RocketNodeDistributorInterface(
+      RocketNodeDistributorFactoryInterface(
+        rocketStorage.getAddress(rocketNodeDistributorFactoryKey)
+      ).getProxyAddress(_nodeAddress)
+    )
   self.ETHOwner = _ETHOwner
   self.RPLOwner = _RPLOwner
   self.ETHFee = _ETHFee
@@ -148,20 +163,29 @@ def withdrawRPL():
 @external
 def withdrawETH():
   assert msg.sender == self.ETHOwner, "auth"
+  # TODO: withdraw ETH from the node if possible?
   assert self._getRocketNodeStaking().getNodeRPLStake(self.nodeAddress) == 0, "stake"
   assert self.RPLRefund == 0, "refund"
   assert self.RPLPrincipal == 0, "principal"
   send(msg.sender, self.balance, gas=msg.gas)
 
 @external
-def claimRewards(_rewardIndex: DynArray[uint256, 128], # TODO: MAX_INTERVALS inlined because of https://github.com/vyperlang/vyper/issues/3294
-                 _amountRPL: DynArray[uint256, 128],
-                 _amountETH: DynArray[uint256, 128],
-                 _merkleProof: DynArray[DynArray[bytes32, 32], 128]): # TODO: MAX_PROOF_LENGTH inlined, same reason as above
+def claimMerkleRewards(
+    _rewardIndex: DynArray[uint256, 128], # TODO: MAX_INTERVALS inlined because of https://github.com/vyperlang/vyper/issues/3294
+    _amountRPL: DynArray[uint256, 128],
+    _amountETH: DynArray[uint256, 128],
+    _merkleProof: DynArray[DynArray[bytes32, 32], 128]): # TODO: MAX_PROOF_LENGTH inlined, same reason as above
   assert msg.sender == self.RPLOwner or msg.sender == self.ETHOwner, "auth"
   rocketMerkleDistributor: RocketMerkleDistributorInterface = RocketMerkleDistributorInterface(rocketStorage.getAddress(rocketMerkleDistributorKey))
   self.allowPaymentsFrom = rocketMerkleDistributor.address
   rocketMerkleDistributor.claim(self.nodeAddress, _rewardIndex, _amountRPL, _amountETH, _merkleProof)
+  self.allowPaymentsFrom = empty(address)
+
+@external
+def claimDistributorRewards():
+  assert msg.sender == self.ETHOwner, "auth"
+  self.allowPaymentsFrom = self.distributor.address
+  self.distributor.distribute()
   self.allowPaymentsFrom = empty(address)
 
 @external

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useContractRead, useContractReads, useNetwork } from "wagmi";
+import { useContractRead, useContractReads, usePublicClient, useNetwork } from "wagmi";
 
 const ClaimIntervals = ({ nodeAddress, setPendingClaims, setNodeMinipools }) => {
 
@@ -10,9 +10,13 @@ const ClaimIntervals = ({ nodeAddress, setPendingClaims, setNodeMinipools }) => 
     const [minipoolCount, setMinipoolCount] = useState(0);
     const [unclaimedIntervals, setUnclaimedIntervals] = useState(null);
 
+    const intervalCIDs = [];
+
+    const publicClient = usePublicClient();
     const { chain } = useNetwork();
     const minipoolManagerAbi = [{"inputs":[{"internalType":"address","name":"_nodeAddress","type":"address"}],"name":"getNodeActiveMinipoolCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_nodeAddress","type":"address"},{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"getNodeMinipoolAt","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_nodeAddress","type":"address"}],"name":"getNodeMinipoolCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_nodeAddress","type":"address"}],"name":"getNodeStakingMinipoolCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_nodeAddress","type":"address"},{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"getNodeValidatingMinipoolAt","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_nodeAddress","type":"address"}],"name":"getNodeValidatingMinipoolCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_offset","type":"uint256"},{"internalType":"uint256","name":"_limit","type":"uint256"}],"name":"getPrelaunchMinipools","outputs":[{"internalType":"address[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getStakingMinipoolCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"getVacantMinipoolAt","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getVacantMinipoolCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}];
     const merkleDistributorAbi = [{"inputs":[{"internalType":"address","name":"_nodeAddress","type":"address"},{"internalType":"uint256[]","name":"_rewardIndex","type":"uint256[]"},{"internalType":"uint256[]","name":"_amountRPL","type":"uint256[]"},{"internalType":"uint256[]","name":"_amountETH","type":"uint256[]"},{"internalType":"bytes32[][]","name":"_merkleProof","type":"bytes32[][]"}],"name":"claim","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_nodeAddress","type":"address"},{"internalType":"uint256[]","name":"_rewardIndex","type":"uint256[]"},{"internalType":"uint256[]","name":"_amountRPL","type":"uint256[]"},{"internalType":"uint256[]","name":"_amountETH","type":"uint256[]"},{"internalType":"bytes32[][]","name":"_merkleProof","type":"bytes32[][]"},{"internalType":"uint256","name":"_stakeAmount","type":"uint256"}],"name":"claimAndStake","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_rewardIndex","type":"uint256"},{"internalType":"address","name":"_claimer","type":"address"}],"name":"isClaimed","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"}];
+    const rewardsPoolAbi = [{"inputs":[],"name":"getRewardIndex","outputs":[{"internalType":"uint256","type":"uint256","name":"i"}],"stateMutability":"view","type":"function"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"rewardIndex","type":"uint256"},{"components":[{"internalType":"uint256","name":"rewardIndex","type":"uint256"},{"internalType":"uint256","name":"executionBlock","type":"uint256"},{"internalType":"uint256","name":"consensusBlock","type":"uint256"},{"internalType":"bytes32","name":"merkleRoot","type":"bytes32"},{"internalType":"string","name":"merkleTreeCID","type":"string"},{"internalType":"uint256","name":"intervalsPassed","type":"uint256"},{"internalType":"uint256","name":"treasuryRPL","type":"uint256"},{"internalType":"uint256[]","name":"trustedNodeRPL","type":"uint256[]"},{"internalType":"uint256[]","name":"nodeRPL","type":"uint256[]"},{"internalType":"uint256[]","name":"nodeETH","type":"uint256[]"},{"internalType":"uint256","name":"userETH","type":"uint256"}],"indexed":false,"internalType":"struct RewardSubmission","name":"submission","type":"tuple"},{"indexed":false,"internalType":"uint256","name":"intervalStartTime","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"intervalEndTime","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"time","type":"uint256"}],"name":"RewardSnapshot","type":"event"}];
 
     const storageContractConfig = {
         address: chain?.id === 17000 ? process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_HOLESKY : process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_MAINNET,
@@ -39,7 +43,7 @@ const ClaimIntervals = ({ nodeAddress, setPendingClaims, setNodeMinipools }) => 
     useContractRead({
         address: rocketRewardsPoolAddress,
         enabled: rocketRewardsPoolAddress,
-        abi: [{"inputs":[],"name":"getRewardIndex","outputs":[{"internalType":"uint256","type":"uint256","name":"i"}],"stateMutability":"view","type":"function"}],
+        abi: rewardsPoolAbi,
         functionName: "getRewardIndex",
         args: [],
         onError: (error) => console.log("Error: " + error),
@@ -73,18 +77,42 @@ const ClaimIntervals = ({ nodeAddress, setPendingClaims, setNodeMinipools }) => 
     })
 
     useContractReads({
-        enabled: nodeAddress && rocketMerkleDistributorAddress && currentIntervalIndex,
+        enabled: nodeAddress && rocketMerkleDistributorAddress && rocketRewardsPoolAddress && currentIntervalIndex,
         contracts: Array.from(Array(currentIntervalIndex).keys()).map(i =>
             ({address: rocketMerkleDistributorAddress,
               abi: merkleDistributorAbi,
               functionName: "isClaimed"
-              args: [currentIntervalIndex, nodeAddress]})),
+              args: [i, nodeAddress]})),
         onSuccess: (data) => {
             const result = data.flatMap((claimed, index) => claimed ? [] : [index])
             console.log(`${nodeAddress} got ${result.length} unclaimed intervals: ${result}`) // TODO: for debug only
             setUnclaimedIntervals(result)
+            for (const i of result) {
+              if (!intervalCIDs[i]) {
+                publicClient.getContractEvents({
+                  address: rocketRewardsPoolAddress,
+                  abi: rewardsPoolAbi,
+                  eventName: 'RewardSnapshot',
+                  args: {rewardIndex: i},
+                }).then(logs => {
+                  if (logs.length == 1) {
+                    if (logs[0].args?.submission?.merkleTreeCID) {
+                      intervalCIDs[i] = logs[0].args.submission.merkleTreeCID
+                      console.log(`Got ${intervalCIDs[i]} cid for ${i}`) // TODO: for debug only
+                    }
+                    else
+                      console.error(`merkleTreeCID ${i} missing in log: ${logs}`)
+                  }
+                  else {
+                    console.error(`Wrong number of logs for interval ${i}: ${logs}`)
+                  }
+                })
+            }
         }
     })
+
+    // TODO: look up the cid on ipfs to get the tree info
+    // TODO: for each unclaimed interval, find the node in the tree file to get its pending claims data
 
 }
 

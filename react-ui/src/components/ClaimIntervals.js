@@ -76,6 +76,43 @@ const ClaimIntervals = ({ nodeAddress, setPendingClaims, setNodeMinipools }) => 
         onSuccess: (data) => setNodeMinipools(data)
     })
 
+    function ensureCIDForInterval(i) {
+        if (!intervalCIDs[i]) {
+            return
+            publicClient.getContractEvents({
+                address: rocketRewardsPoolAddress,
+                abi: rewardsPoolAbi,
+                eventName: 'RewardSnapshot',
+                args: {rewardIndex: i},
+            }).then(logs => {
+              if (logs.length == 1) {
+                  if (logs[0].args?.submission?.merkleTreeCID) {
+                    intervalCIDs[i] = logs[0].args.submission.merkleTreeCID
+                    console.log(`Got ${intervalCIDs[i]} cid for ${i}`) // TODO: for debug only
+                    return {rewardIndex: i, cid: intervalCIDs[i]}
+                  }
+                  else
+                    console.error(`merkleTreeCID ${i} missing in log: ${logs}`)
+              }
+              else {
+                  console.error(`Wrong number of logs for interval ${i}: ${logs}`)
+              }
+            })
+        }
+        else {
+            return {rewardIndex: i, cid: intervalCIDs[i]}
+        }
+    }
+
+    async function processCIDs(cids) {
+        const pendingClaims = []
+        for (const {rewardIndex, cid} of cids) {
+            // TODO: look up the cid on ipfs to get the tree info
+            // TODO: find the nodeAddress in the tree and add its claims {rewardIndex, ETH, RPL} to pendingClaims
+        }
+        setPendingClaims(pendingClaims)
+    }
+
     useContractReads({
         enabled: nodeAddress && rocketMerkleDistributorAddress && rocketRewardsPoolAddress && currentIntervalIndex,
         contracts: Array.from(Array(currentIntervalIndex).keys()).map(i =>
@@ -87,32 +124,10 @@ const ClaimIntervals = ({ nodeAddress, setPendingClaims, setNodeMinipools }) => 
             const result = data.flatMap((claimed, index) => claimed ? [] : [index])
             console.log(`${nodeAddress} got ${result.length} unclaimed intervals: ${result}`) // TODO: for debug only
             setUnclaimedIntervals(result)
-            for (const i of result) {
-              if (!intervalCIDs[i]) {
-                publicClient.getContractEvents({
-                  address: rocketRewardsPoolAddress,
-                  abi: rewardsPoolAbi,
-                  eventName: 'RewardSnapshot',
-                  args: {rewardIndex: i},
-                }).then(logs => {
-                  if (logs.length == 1) {
-                    if (logs[0].args?.submission?.merkleTreeCID) {
-                      intervalCIDs[i] = logs[0].args.submission.merkleTreeCID
-                      console.log(`Got ${intervalCIDs[i]} cid for ${i}`) // TODO: for debug only
-                    }
-                    else
-                      console.error(`merkleTreeCID ${i} missing in log: ${logs}`)
-                  }
-                  else {
-                    console.error(`Wrong number of logs for interval ${i}: ${logs}`)
-                  }
-                })
-            }
+            Promise.all(result.map(ensureCIDForInterval)).then(processCIDs)
         }
     })
 
-    // TODO: look up the cid on ipfs to get the tree info
-    // TODO: for each unclaimed interval, find the node in the tree file to get its pending claims data
 
 }
 

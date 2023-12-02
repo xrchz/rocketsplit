@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useContractRead, useContractReads, usePublicClient, useNetwork } from "wagmi";
+import zstd from 'zstandard-wasm';
 
 const ClaimIntervals = ({ nodeAddress, setPendingClaims, setNodeMinipools }) => {
 
@@ -105,16 +106,27 @@ const ClaimIntervals = ({ nodeAddress, setPendingClaims, setNodeMinipools }) => 
     }
 
     async function processCIDs(cids) {
+        await zstd.loadWASM()
         const pendingClaims = []
         for (const {rewardIndex, cid} of cids) {
-            // TODO: look up the cid on ipfs to get the tree info
-            // TODO: find the nodeAddress in the tree and add its claims {rewardIndex, ETH, RPL} to pendingClaims
+            const url = new URL(`/ipfs/${cid}/rp-rewards-${chain.name}-${rewardIndex}.json.zst`, 'https://ipfs.io')
+            const res = await fetch(url)
+            const decoder = new TextDecoder()
+            const compressed = new Uint8Array(res.arrayBuffer())
+            const tree = JSON.parse(decoder.decode(zstd.decompress(compressed))).nodeRewards
+            const claim = tree[nodeAddress.toLowerCase()]
+            pendingClaims.push({
+              rewardIndex,
+              amountETH: BigInt(claim.smoothingPoolEth),
+              amountRPL: BigInt(claim.collateralRpl),
+              merkleProof: claim.merkleProof
+            })
         }
         setPendingClaims(pendingClaims)
     }
 
     useContractReads({
-        enabled: nodeAddress && rocketMerkleDistributorAddress && rocketRewardsPoolAddress && currentIntervalIndex,
+        enabled: chain && nodeAddress && rocketMerkleDistributorAddress && rocketRewardsPoolAddress && currentIntervalIndex,
         contracts: Array.from(Array(currentIntervalIndex).keys()).map(i =>
             ({address: rocketMerkleDistributorAddress,
               abi: merkleDistributorAbi,

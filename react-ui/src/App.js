@@ -23,6 +23,7 @@ import MarriageCreator from './components/MarriageCreator';
 
 import { ToastContainer, toast } from 'react-toastify';
 import MarriageList from './components/MarriageList';
+import ClaimIntervals from './components/ClaimIntervals';
 
 
 
@@ -128,6 +129,9 @@ function App() {
                           setPendingWithdrawalAddress={setPendingWithdrawalAddress}
                           setWithdrawalAddress={setWithdrawalAddress}
                           isRocketSplit={isRocketSplit}/>
+                       }
+                       {withdrawalAddress &&
+                        <ClaimIntervals nodeAddress={nodeAddress} setPendingClaims={setPendingClaims} setNodeMinipools={setNodeMinipools}/>
                        }
                       {!splitAddress &&
                         <MarriageCreator withdrawalAddress={withdrawalAddress} 

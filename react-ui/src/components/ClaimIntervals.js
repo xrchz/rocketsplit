@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { keccak256 } from "viem";
 import { useContractRead, useContractReads, usePublicClient, useNetwork } from "wagmi";
 import zstd from 'zstandard-wasm';
 
@@ -24,22 +25,45 @@ const ClaimIntervals = ({ nodeAddress, setPendingClaims, setNodeMinipools }) => 
         abi: [{"inputs":[{"internalType":"bytes32","name":"_key","type":"bytes32"}],"name":"getAddress","outputs":[{"internalType":"address","name":"r","type":"address"}],"stateMutability":"view","type":"function"}]
     };
 
-    const getAddress = (name, setAddress) => {
-      useContractRead({
-          ...storageContractConfig,
-          functionName: "getAddress",
-          args: [keccak256(`contract.address${name}`)],
-          onLoading: () => console.log("Loading..."),
-          onError: (error) => console.log("Error: " + error),
-          onSuccess: (result) => {
-              setAddress(result);
-          }
-      })
-    }
+    //--------------------------------------------------------------------------------
+    // Get the various addresses we need.
+    //--------------------------------------------------------------------------------
+    useContractRead({
+        ...storageContractConfig,
+        functionName: "getAddress",
+        args: [keccak256(`contract.addressrocketRewardsPool`)],
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => console.log("Error: " + error),
+        onSuccess: (result) => {
+            console.log(`rocketRewardsPoolAddress ${result}`)
+            setRocketRewardsPoolAddress(result);
+        }
+    })
 
-    getAddress('rocketRewardsPool', setRocketRewardsPoolAddress)
-    getAddress('rocketMinipoolManager', setRocketMinipoolManagerAddress)
-    getAddress('rocketMerkleDistributor', setRocketMerkleDistributorAddress)
+    useContractRead({
+        ...storageContractConfig,
+        functionName: "getAddress",
+        args: [keccak256(`contract.addressrocketMinipoolManager`)],
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => console.log("Error: " + error),
+        onSuccess: (result) => {
+            console.log(`rocketMinipoolManagerAddress ${result}`)
+            setRocketMinipoolManagerAddress(result);
+        }
+    })
+
+    useContractRead({
+        ...storageContractConfig,
+        functionName: "getAddress",
+        args: [keccak256(`contract.addressrocketMerkleDistributor`)],
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => console.log("Error: " + error),
+        onSuccess: (result) => {
+            console.log(`rocketMerkleDistributorAddress ${result}`)
+            setRocketMerkleDistributorAddress(result);
+        }
+    })
+    //--------------------------------------------------------------------------------
 
     useContractRead({
         address: rocketRewardsPoolAddress,
@@ -130,7 +154,7 @@ const ClaimIntervals = ({ nodeAddress, setPendingClaims, setNodeMinipools }) => 
         contracts: Array.from(Array(currentIntervalIndex).keys()).map(i =>
             ({address: rocketMerkleDistributorAddress,
               abi: merkleDistributorAbi,
-              functionName: "isClaimed"
+              functionName: "isClaimed",
               args: [i, nodeAddress]})),
         onSuccess: (data) => {
             const result = data.flatMap((claimed, index) => claimed ? [] : [index])
@@ -140,6 +164,17 @@ const ClaimIntervals = ({ nodeAddress, setPendingClaims, setNodeMinipools }) => 
         }
     })
 
+    return (
+        <div className="rocket-panel">
+            <h2>Claim Intervals</h2>
+            <p>Claim intervals for {nodeAddress}:</p>
+            <ul>
+                {unclaimedIntervals?.map(i => <li key={i}>{i}</li>)}
+            </ul>
+            <p># Minipools for {nodeAddress}:</p>
+            <h2>{minipoolCount}</h2>
+        </div>
+    )
 
 }
 

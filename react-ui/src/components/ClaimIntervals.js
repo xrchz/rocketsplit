@@ -55,7 +55,7 @@ const ClaimIntervals = ({ nodeAddress, setPendingClaims, setNodeMinipools }) => 
     useContractRead({
         ...storageContractConfig,
         functionName: "getAddress",
-        args: [keccak256(`contract.addressrocketMerkleDistributor`)],
+        args: [keccak256(`contract.addressrocketMerkleDistributorMainnet`)],
         onLoading: () => console.log("Loading..."),
         onError: (error) => console.log("Error: " + error),
         onSuccess: (result) => {
@@ -103,7 +103,6 @@ const ClaimIntervals = ({ nodeAddress, setPendingClaims, setNodeMinipools }) => 
 
     function ensureCIDForInterval(i) {
         if (!intervalCIDs[i]) {
-            return
             publicClient.getContractEvents({
                 address: rocketRewardsPoolAddress,
                 abi: rewardsPoolAbi,
@@ -168,11 +167,11 @@ const ClaimIntervals = ({ nodeAddress, setPendingClaims, setNodeMinipools }) => 
         <div className="rocket-panel">
             <h2>Claim Intervals</h2>
             <p>Claim intervals for {nodeAddress}:</p>
-            <ul>
-                {unclaimedIntervals?.map(i => <li key={i}>{i}</li>)}
-            </ul>
-            <p># Minipools for {nodeAddress}:</p>
-            <h2>{minipoolCount}</h2>
+               { unclaimedIntervals && <>{unclaimedIntervals.length}</> }
+            <div>
+                <p># Minipools for {nodeAddress}:</p>
+                <p>{minipoolCount.toString()}</p>
+            </div>
         </div>
     )
 

@@ -3,7 +3,7 @@ import { keccak256 } from "viem";
 import { useContractRead, useContractReads, usePublicClient, useNetwork } from "wagmi";
 import zstd from 'zstandard-wasm';
 
-const ClaimIntervals = ({ nodeAddress, setPendingClaims, setNodeMinipools }) => {
+const ClaimIntervals = ({ nodeAddress }) => {
 
     const [rocketRewardsPoolAddress, setRocketRewardsPoolAddress] = useState(null);
     const [rocketMinipoolManagerAddress, setRocketMinipoolManagerAddress] = useState(null);
@@ -11,6 +11,8 @@ const ClaimIntervals = ({ nodeAddress, setPendingClaims, setNodeMinipools }) => 
     const [currentIntervalIndex, setCurrentIntervalIndex] = useState(0);
     const [minipoolCount, setMinipoolCount] = useState(0);
     const [unclaimedIntervals, setUnclaimedIntervals] = useState(null);
+    const [pendingClaims, setPendingClaims] = useState([]);
+    const [nodeMinipools, setNodeMinipools] = useState([]);
 
     const intervalCIDs = [];
 
@@ -92,8 +94,8 @@ const ClaimIntervals = ({ nodeAddress, setPendingClaims, setNodeMinipools }) => 
     })
 
     useContractReads({
-        enabled: nodeAddress && rocketMinipoolManagerAddress && minipoolCount,
-        contracts: Array.from(Array(minipoolCount).keys()).map(i =>
+        enabled: nodeAddress && rocketMinipoolManagerAddress && minipoolCount > 0,
+        contracts: Array.from(Array(Number(minipoolCount)).keys()).map(i =>
             ({address: rocketMinipoolManagerAddress,
               abi: minipoolManagerAbi,
               functionName: "getNodeMinipoolAt",
@@ -101,66 +103,111 @@ const ClaimIntervals = ({ nodeAddress, setPendingClaims, setNodeMinipools }) => 
         onSuccess: (data) => setNodeMinipools(data)
     })
 
-    function ensureCIDForInterval(i) {
-        if (!intervalCIDs[i]) {
-            publicClient.getContractEvents({
-                address: rocketRewardsPoolAddress,
-                abi: rewardsPoolAbi,
-                eventName: 'RewardSnapshot',
-                args: {rewardIndex: i},
-            }).then(logs => {
-              if (logs.length == 1) {
-                  if (logs[0].args?.submission?.merkleTreeCID) {
-                    intervalCIDs[i] = logs[0].args.submission.merkleTreeCID
-                    console.log(`Got ${intervalCIDs[i]} cid for ${i}`) // TODO: for debug only
-                    return {rewardIndex: i, cid: intervalCIDs[i]}
-                  }
-                  else
-                    console.error(`merkleTreeCID ${i} missing in log: ${logs}`)
-              }
-              else {
-                  console.error(`Wrong number of logs for interval ${i}: ${logs}`)
-              }
-            })
-        }
-        else {
-            return {rewardIndex: i, cid: intervalCIDs[i]}
+    async function ensureCIDForInterval(i) {
+        const batchSize = 50000n;
+        const currentBlockNumber = await publicClient.getBlockNumber();
+        let fromBlock = chain?.id === 17000 ? 42724n : 15342713n;  // What block did the reward contract get deployed?
+        let toBlock;
+
+        while (fromBlock < currentBlockNumber) {
+            toBlock = fromBlock + batchSize - 1n;
+            if (toBlock > currentBlockNumber) {
+                toBlock = currentBlockNumber;
+            }
+
+            if (!intervalCIDs[i]) {
+                try {
+                    const logs = await publicClient.getContractEvents({
+                        address: rocketRewardsPoolAddress,
+                        abi: rewardsPoolAbi,
+                        eventName: 'RewardSnapshot',
+                        args: { rewardIndex: i },
+                        fromBlock: fromBlock,
+                        toBlock: toBlock,
+                    });
+
+                    if (logs.length == 1) {
+                        if (logs[0].args?.submission?.merkleTreeCID) {
+                            intervalCIDs[i] = logs[0].args.submission.merkleTreeCID;
+                            console.log(`Got ${intervalCIDs[i]} cid for ${i}`); // for debug
+                            return { rewardIndex: i, cid: intervalCIDs[i] };
+                        } else {
+                            console.error(`merkleTreeCID ${i} missing in log: ${logs}`);
+                        }
+                    } else {
+                        console.error(`Wrong number of logs for interval ${i}: ${logs}`);
+                    }
+                } catch (error) {
+                    console.error(`Error fetching events for interval ${i}: ${error}`);
+                }
+            } else {
+                return { rewardIndex: i, cid: intervalCIDs[i] };
+            }
+
+            fromBlock = toBlock + 1n;
         }
     }
 
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
     async function processCIDs(cids) {
+
+        // filter out undefined cids
+        // Seems like we can just shift the array. Are rewards 0 indexed?
+        cids = cids.filter(cid => cid)
+
         await zstd.loadWASM()
         const pendingClaims = []
-        for (const {rewardIndex, cid} of cids) {
-            const url = new URL(`/ipfs/${cid}/rp-rewards-${chain.name}-${rewardIndex}.json.zst`, 'https://ipfs.io')
-            const res = await fetch(url)
-            const decoder = new TextDecoder()
-            const compressed = new Uint8Array(res.arrayBuffer())
-            const tree = JSON.parse(decoder.decode(zstd.decompress(compressed))).nodeRewards
-            const claim = tree[nodeAddress.toLowerCase()]
-            pendingClaims.push({
-              rewardIndex,
-              amountETH: BigInt(claim.smoothingPoolEth),
-              amountRPL: BigInt(claim.collateralRpl),
-              merkleProof: claim.merkleProof
-            })
+
+        try {
+            for (const {rewardIndex, cid} of cids) {
+                const url = new URL(`/ipfs/${cid}/rp-rewards-${chain.name.toLowerCase()}-${rewardIndex}.json.zst`, 'https://cloudflare-ipfs.com/')
+                console.log("Requesting tree " + url.toString())
+                const res = await fetch(url)
+
+                const decoder = new TextDecoder()
+                const compressed = new Uint8Array(await res.arrayBuffer())
+                const tree = JSON.parse(decoder.decode(zstd.decompress(compressed))).nodeRewards
+                const claim = tree[nodeAddress.toLowerCase()]
+
+                if(claim) {
+                    pendingClaims.push({
+                        rewardIndex,
+                        amountETH: BigInt(claim.smoothingPoolEth),
+                        amountRPL: BigInt(claim.collateralRpl),
+                        merkleProof: claim.merkleProof
+                    })
+                }
+
+                sleep(1000)
+            }
+
+            setPendingClaims(pendingClaims)
         }
-        setPendingClaims(pendingClaims)
+        catch (e) {
+            console.error(e)
+        }
     }
 
     useContractReads({
         enabled: chain && nodeAddress && rocketMerkleDistributorAddress && rocketRewardsPoolAddress && currentIntervalIndex,
-        contracts: Array.from(Array(currentIntervalIndex).keys()).map(i =>
-            ({address: rocketMerkleDistributorAddress,
-              abi: merkleDistributorAbi,
-              functionName: "isClaimed",
-              args: [i, nodeAddress]})),
+        contracts:
+            Array.from(Array(Number(currentIntervalIndex)).keys()).map(i => ({
+                address: rocketMerkleDistributorAddress,
+                abi: merkleDistributorAbi,
+                functionName: "isClaimed",
+                args: [i, nodeAddress]
+            }))
+        ,
         onSuccess: (data) => {
-            const result = data.flatMap((claimed, index) => claimed ? [] : [index])
+            const result = data.map((claimed, index) => !claimed.result ? index : null).filter(index => index !== null);
             console.log(`${nodeAddress} got ${result.length} unclaimed intervals: ${result}`) // TODO: for debug only
+
             setUnclaimedIntervals(result)
             Promise.all(result.map(ensureCIDForInterval)).then(processCIDs)
-        }
+        },
     })
 
     return (
@@ -169,8 +216,10 @@ const ClaimIntervals = ({ nodeAddress, setPendingClaims, setNodeMinipools }) => 
             <p>Claim intervals for {nodeAddress}:</p>
                { unclaimedIntervals && <>{unclaimedIntervals.length}</> }
             <div>
-                <p># Minipools for {nodeAddress}:</p>
-                <p>{minipoolCount.toString()}</p>
+                <p>You have {minipoolCount.toString()} Minipools:</p>
+                {nodeMinipools.map((minipool, index) => (
+                    <p key={index}>{minipool.result}</p>
+                ))}
             </div>
         </div>
     )

@@ -83,8 +83,6 @@ function App() {
   const [nodeAddress, setNodeAddress] = useState(null);
   const [splitAddress, setSplitAddress] = useState(null);
   const [isRocketSplit, setIsRocketSplit] = useState(false);
-  const [pendingClaims, setPendingClaims] = useState([]);
-  const [nodeMinipools, setNodeMinipools] = useState([]);
 
   return (
      <WagmiConfig config={wagmiConfig}>
@@ -131,7 +129,7 @@ function App() {
                           isRocketSplit={isRocketSplit}/>
                        }
                        {withdrawalAddress &&
-                        <ClaimIntervals nodeAddress={nodeAddress} setPendingClaims={setPendingClaims} setNodeMinipools={setNodeMinipools}/>
+                        <ClaimIntervals nodeAddress={nodeAddress}/>
                        }
                       {!splitAddress &&
                         <MarriageCreator withdrawalAddress={withdrawalAddress} 

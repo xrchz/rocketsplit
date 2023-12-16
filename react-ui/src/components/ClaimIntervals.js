@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { keccak256 } from "viem";
-import { useContractRead, useContractReads, usePublicClient, useNetwork } from "wagmi";
+import { useEffect, useState } from "react";
+import { formatEther, keccak256 } from "viem";
+import { useContractRead, useContractReads, usePublicClient, useNetwork, usePrepareContractWrite, useContractWrite } from "wagmi";
 import zstd from 'zstandard-wasm';
+import RocketSplitABI from '../abi/RocketSplit.json'
 
-const ClaimIntervals = ({ nodeAddress }) => {
+const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
 
     const [rocketRewardsPoolAddress, setRocketRewardsPoolAddress] = useState(null);
     const [rocketMinipoolManagerAddress, setRocketMinipoolManagerAddress] = useState(null);
@@ -12,7 +13,12 @@ const ClaimIntervals = ({ nodeAddress }) => {
     const [minipoolCount, setMinipoolCount] = useState(0);
     const [unclaimedIntervals, setUnclaimedIntervals] = useState(null);
     const [pendingClaims, setPendingClaims] = useState([]);
+    const [selectedClaims, setSelectedClaims] = useState([]);
+
     const [nodeMinipools, setNodeMinipools] = useState([]);
+
+    const [claimableRPL, setClaimableRPL] = useState(null);
+    const [claimableETH, setClaimableETH] = useState(null);
 
     const intervalCIDs = [];
 
@@ -26,6 +32,20 @@ const ClaimIntervals = ({ nodeAddress }) => {
         address: chain?.id === 17000 ? process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_HOLESKY : process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_MAINNET,
         abi: [{"inputs":[{"internalType":"bytes32","name":"_key","type":"bytes32"}],"name":"getAddress","outputs":[{"internalType":"address","name":"r","type":"address"}],"stateMutability":"view","type":"function"}]
     };
+
+    useEffect(() => {
+        // Calculate total rewards in both ETH and RPL for all pendingClaims
+        let totalETH = 0n;
+        let totalRPL = 0n;
+        for (const claim of pendingClaims) {
+            totalETH += claim.amountETH;
+            totalRPL += claim.amountRPL;
+        }
+
+        setClaimableETH(totalETH);
+        setClaimableRPL(totalRPL);
+    }, [pendingClaims])
+
 
     //--------------------------------------------------------------------------------
     // Get the various addresses we need.
@@ -210,18 +230,77 @@ const ClaimIntervals = ({ nodeAddress }) => {
         },
     })
 
+    const { config } = usePrepareContractWrite({
+        address: withdrawalAddress,
+        abi: RocketSplitABI.abi,
+        functionName: "claimMerkleRewards",
+        args: [selectedClaims.map(claim => claim.rewardIndex), selectedClaims.map(claim => claim.amountRPL), selectedClaims.map(claim => claim.amountETH), selectedClaims.map(claim => claim.merkleProof)],
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => console.log("Error: " + error),
+        onSuccess: (result) => {
+            console.log(`claim result ${result}`)
+        }
+    })
+
+    const { write: claimRewards } = useContractWrite(config);
+
+
+    const claimInterval = async (index) => {
+        const claim = pendingClaims[index];
+
+        if (selectedClaims.includes(claim)) {
+            // Remove claim from selectedClaims if it's already there
+            setSelectedClaims(selectedClaims.filter(c => c !== claim));
+        } else {
+            // Add claim to selectedClaims if it's not there
+            setSelectedClaims([...selectedClaims, claim]);
+        }
+    }
+
+    console.log("selectedClaims: " + selectedClaims);
+
     return (
+        <>
         <div className="rocket-panel">
-            <h2>Claim Intervals</h2>
-            <p>Claim intervals for {nodeAddress}:</p>
-               { unclaimedIntervals && <>{unclaimedIntervals.length}</> }
-            <div>
+            <h2>Available Rewards:</h2>
+            { unclaimedIntervals && <>{unclaimedIntervals.length} claimable rewards totaling {parseFloat(formatEther(claimableETH)).toFixed(4)} ETH and {parseFloat(formatEther(claimableRPL)).toFixed(4)} RPL</> }
+            <button className="btn-action" onClick={() => claimRewards?.()}  disabled={selectedClaims.length === 0}>Claim Rewards</button>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Interval</th>
+                        <th>Amount ETH</th>
+                        <th>Amount RPL</th>
+                        <th><input type="checkbox" onClick={(e) => setSelectedClaims(e.target.checked ? pendingClaims : [])}/></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {pendingClaims.map((claim, index) => (
+                    <tr key={index}>
+                        <td>{claim.rewardIndex}</td>
+                        <td>{parseFloat(formatEther(claim.amountETH)).toFixed(4)} ETH</td>
+                        <td>{parseFloat(formatEther(claim.amountRPL)).toFixed(4)} RPL</td>
+                        <td>
+                        <input
+                            type="checkbox"
+                            checked={selectedClaims.includes(claim)}
+                            onChange={() => claimInterval(index)}
+                        />
+                        </td>
+                    </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+        <div className="rocket-panel">
+            <h2>Minipool Balances: </h2>
                 <p>You have {minipoolCount.toString()} Minipools:</p>
                 {nodeMinipools.map((minipool, index) => (
                     <p key={index}>{minipool.result}</p>
                 ))}
-            </div>
         </div>
+        </>
     )
 
 }

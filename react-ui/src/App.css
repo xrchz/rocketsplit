@@ -176,10 +176,15 @@ button {
   text-align: center;
   text-decoration: none;
   border: 1px solid #201b23;
-  cursor: pointer;
+  border-radius: 5px;
+  cursor: default; /* Default cursor when disabled */
 }
 
-.btn-action:hover {
+.btn-action:not(:disabled) {
+  cursor: pointer; /* Pointer cursor only when enabled */
+}
+
+.btn-action:not(:disabled):hover {
   background-color: #201b23;
   color: white;
 }
@@ -242,7 +247,6 @@ button {
   width: 80%;
   margin: 0 auto;
   margin-bottom: 10px;
-  border-radius: 5px;
 }
 
 .not-rocketsplit {
@@ -341,6 +345,9 @@ input[type="range"]::-webkit-slider-thumb:active {
   width: 15px;
 }
 
+thead th {
+  border-bottom: 1px solid #eeeeee;
+}
 
 
 

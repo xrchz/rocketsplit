@@ -129,7 +129,8 @@ function App() {
                           isRocketSplit={isRocketSplit}/>
                        }
                        {withdrawalAddress &&
-                        <ClaimIntervals nodeAddress={nodeAddress}/>
+                        <ClaimIntervals nodeAddress={nodeAddress}
+                          withdrawalAddress={withdrawalAddress}/>
                        }
                       {!splitAddress &&
                         <MarriageCreator withdrawalAddress={withdrawalAddress} 

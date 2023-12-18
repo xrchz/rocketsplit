@@ -183,7 +183,7 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
                         toBlock: toBlock,
                     });
 
-                    if (logs.length == 1) {
+                    if (logs.length == 1 && i > 0) {
                         if (logs[0].args?.submission?.merkleTreeCID) {
                             intervalCIDs[i] = logs[0].args.submission.merkleTreeCID;
                             console.log(`Got ${intervalCIDs[i]} cid for ${i}`); // for debug
@@ -381,7 +381,7 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
                 </div>
             }
             <h2>Available Rewards:</h2>
-            { unclaimedIntervals && <>{unclaimedIntervals.length} claimable rewards totaling {claimableETH} and {claimableRPL}</> }
+            { pendingClaims && <>{pendingClaims.length} claimable rewards totaling {claimableETH} and {claimableRPL}</> }
             <button className="btn-action" onClick={() => claimRewards?.()}  disabled={selectedClaims.length === 0}>Claim Rewards of {pendingClaimableETH} and {pendingClaimableRPL}</button>
 
             <table>

@@ -1,9 +1,11 @@
-import { useState } from "react";
-import { keccak256 } from "viem";
-import { useContractRead, useContractReads, usePublicClient, useNetwork } from "wagmi";
+import { useEffect, useState } from "react";
+import { formatEther, keccak256 } from "viem";
+import { useContractRead, useContractReads, usePublicClient, useNetwork, usePrepareContractWrite, useContractWrite, useWaitForTransaction } from "wagmi";
 import zstd from 'zstandard-wasm';
+import RocketSplitABI from '../abi/RocketSplit.json'
+import AddressDisplay from "./AddressDisplay";
 
-const ClaimIntervals = ({ nodeAddress }) => {
+const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
 
     const [rocketRewardsPoolAddress, setRocketRewardsPoolAddress] = useState(null);
     const [rocketMinipoolManagerAddress, setRocketMinipoolManagerAddress] = useState(null);
@@ -12,7 +14,19 @@ const ClaimIntervals = ({ nodeAddress }) => {
     const [minipoolCount, setMinipoolCount] = useState(0);
     const [unclaimedIntervals, setUnclaimedIntervals] = useState(null);
     const [pendingClaims, setPendingClaims] = useState([]);
+    const [selectedClaims, setSelectedClaims] = useState([]);
+
     const [nodeMinipools, setNodeMinipools] = useState([]);
+    const [selectedMinipools, setSelectedMinipools] = useState([]);
+
+    const [feeDistributorAddress, setFeeDistributorAddress] = useState('');
+    const [feeDistributorBalance, setFeeDistributorBalance] = useState(null);
+
+    const [claimableRPL, setClaimableRPL] = useState(null);
+    const [claimableETH, setClaimableETH] = useState(null);
+    const [claimableMinipoolETH, setClaimableMinipoolETH] = useState(null);
+    const [pendingClaimableRPL, setPendingClaimableRPL] = useState(null);
+    const [pendingClaimableETH, setPendingClaimableETH] = useState(null);
 
     const intervalCIDs = [];
 
@@ -26,6 +40,42 @@ const ClaimIntervals = ({ nodeAddress }) => {
         address: chain?.id === 17000 ? process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_HOLESKY : process.env.REACT_APP_ROCKETPOOL_STORAGE_ADDRESS_MAINNET,
         abi: [{"inputs":[{"internalType":"bytes32","name":"_key","type":"bytes32"}],"name":"getAddress","outputs":[{"internalType":"address","name":"r","type":"address"}],"stateMutability":"view","type":"function"}]
     };
+
+    useEffect(() => {
+        // Calculate total rewards in both ETH and RPL for all pendingClaims
+        let totalETH = 0n;
+        let totalRPL = 0n;
+        for (const claim of pendingClaims) {
+            totalETH += claim.amountETH;
+            totalRPL += claim.amountRPL;
+        }
+
+        setClaimableETH(parseFloat(formatEther(totalETH)).toFixed(4) + " ETH");
+        setClaimableRPL(parseFloat(formatEther(totalRPL)).toFixed(4) + " RPL");
+    }, [pendingClaims])
+
+    useEffect(() => {
+        // Calulate the totat ETH and RPL selected for claiming.
+        let totalETH = 0n;
+        let totalRPL = 0n;
+        for (const claim of selectedClaims) {
+            totalETH += claim.amountETH;
+            totalRPL += claim.amountRPL;
+        }
+
+        setPendingClaimableETH(parseFloat(formatEther(totalETH)).toFixed(4) + " ETH");
+        setPendingClaimableRPL(parseFloat(formatEther(totalRPL)).toFixed(4) + " RPL");
+    }, [selectedClaims])
+
+    useEffect(() => {
+        // Calculate the total amount being claimed from selectedMinipools.
+        let totalETH = 0n;
+        for (const minipool of selectedMinipools) {
+            totalETH += minipool.balance;
+        }
+        setClaimableMinipoolETH(parseFloat(formatEther(totalETH)).toFixed(4) + " ETH");
+    }, [selectedMinipools])
+
 
     //--------------------------------------------------------------------------------
     // Get the various addresses we need.
@@ -93,14 +143,21 @@ const ClaimIntervals = ({ nodeAddress }) => {
         }
     })
 
-    useContractReads({
+    const { refetch: refreshMinipools } = useContractReads({
         enabled: nodeAddress && rocketMinipoolManagerAddress && minipoolCount > 0,
         contracts: Array.from(Array(Number(minipoolCount)).keys()).map(i =>
             ({address: rocketMinipoolManagerAddress,
               abi: minipoolManagerAbi,
               functionName: "getNodeMinipoolAt",
               args: [nodeAddress, i]})),
-        onSuccess: (data) => setNodeMinipools(data)
+        onSuccess: async (data) => {
+            // Get the balance of all the addresses and store it in the data.balance property
+            const updatedData = await Promise.all(data.map(async (minipool, index) => {
+                const balance = await publicClient.getBalance({address: minipool.result});
+                return {...minipool, balance};
+            }));
+            setNodeMinipools(updatedData)
+        }
     })
 
     async function ensureCIDForInterval(i) {
@@ -191,7 +248,7 @@ const ClaimIntervals = ({ nodeAddress }) => {
         }
     }
 
-    useContractReads({
+    const {refetch: refreshUnclaimedIntervals } = useContractReads({
         enabled: chain && nodeAddress && rocketMerkleDistributorAddress && rocketRewardsPoolAddress && currentIntervalIndex,
         contracts:
             Array.from(Array(Number(currentIntervalIndex)).keys()).map(i => ({
@@ -210,18 +267,211 @@ const ClaimIntervals = ({ nodeAddress }) => {
         },
     })
 
+    const { refetch: refreshDistributor } = useContractRead({
+        address: withdrawalAddress,
+        abi: RocketSplitABI.abi,
+        functionName: "distributor",
+        enabled: withdrawalAddress,
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => console.log("Error: " + error),
+        onSuccess: async (result) => { 
+            // Get the balance of the distributor
+            const balance = await publicClient.getBalance({address: result})
+
+            console.log(`fee distributor ${result} balance ${balance}`) // TODO: for debug only
+            setFeeDistributorAddress(result);
+            setFeeDistributorBalance(balance);
+        }
+    })
+
+    const { config } = usePrepareContractWrite({
+        address: withdrawalAddress,
+        abi: RocketSplitABI.abi,
+        functionName: "claimMerkleRewards",
+        args: [selectedClaims.map(claim => claim.rewardIndex), selectedClaims.map(claim => claim.amountRPL), selectedClaims.map(claim => claim.amountETH), selectedClaims.map(claim => claim.merkleProof)],
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => console.log("Error: " + error),
+        onSuccess: (result) => {
+            console.log(`claim result ${result}`)
+        }
+    })
+
+    const { write: claimRewards, data: claimRewardsData } = useContractWrite(config);
+
+    const { isLoading: claimRewardsLoading } = useWaitForTransaction({
+        hash: claimRewardsData?.hash,
+        onSuccess: (result) => {
+            // Read the contract again to update the pending claims.
+            refreshUnclaimedIntervals?.();
+        }
+    });
+
+    const { config: minipoolDistroConfig } = usePrepareContractWrite({
+        address: withdrawalAddress,
+        abi: RocketSplitABI.abi,
+        functionName: "distributeMinipoolBalance",
+        args: [selectedMinipools.map(claim => claim.result)],
+        enabled: selectedMinipools.length > 0,
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => console.log("Error: " + error),
+    })
+
+    const { write: distributeMinipoolBalance, data: distributeMinipoolBalanceData } = useContractWrite(minipoolDistroConfig);
+
+    const { isLoading: distributeMinipoolBalanceLoading } = useWaitForTransaction({
+        hash: distributeMinipoolBalanceData?.hash,
+        onSuccess: (result) => {
+            // Read the contract again to update the minipool balances.
+            refreshMinipools?.();
+        }
+    });
+
+    const { config: feeDistributorConfig } = usePrepareContractWrite({
+        address: withdrawalAddress,
+        abi: RocketSplitABI.abi,
+        functionName: "claimDistributorRewards",
+        args: [],
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => console.log("Error: " + error),
+    })
+
+    const { write: claimDistributorRewards, data: claimDistributorRewardsData } = useContractWrite(feeDistributorConfig);
+
+    const { isLoading: claimDistributorRewardsLoading } = useWaitForTransaction({
+        hash: claimDistributorRewardsData?.hash,
+        onSuccess: (result) => {
+            console.log(`claimDistributorRewards`)
+            // Read the contract again to update the fee distributor balance.
+            refreshDistributor?.();
+        }
+    });
+
+    const claimInterval = (index) => {
+        const claim = pendingClaims[index];
+
+        if (selectedClaims.includes(claim)) {
+            // Remove claim from selectedClaims if it's already there
+            setSelectedClaims(selectedClaims.filter(c => c !== claim));
+        } else {
+            // Add claim to selectedClaims if it's not there
+            setSelectedClaims([...selectedClaims, claim]);
+        }
+    }
+
+    const minipoolToggle = (index) => {
+        const minipool = nodeMinipools[index];
+
+        if (selectedMinipools.includes(minipool)) {
+            // Remove minipool from selectedMinipools if it's already there
+            setSelectedMinipools(selectedMinipools.filter(m => m !== minipool));
+        } else {
+            // Add minipool to selectedMinipools if it's not there
+            setSelectedMinipools([...selectedMinipools, minipool]);
+        }
+    }
+
     return (
+        <>
+
         <div className="rocket-panel">
-            <h2>Claim Intervals</h2>
-            <p>Claim intervals for {nodeAddress}:</p>
-               { unclaimedIntervals && <>{unclaimedIntervals.length}</> }
-            <div>
-                <p>You have {minipoolCount.toString()} Minipools:</p>
-                {nodeMinipools.map((minipool, index) => (
-                    <p key={index}>{minipool.result}</p>
-                ))}
-            </div>
+           {claimRewardsLoading &&
+                <div className="action-panel loading">
+                    <div className="spinner"></div>
+                    <p>Distributing Rewards</p>
+                </div>
+            }
+            <h2>Available Rewards:</h2>
+            { unclaimedIntervals && <>{unclaimedIntervals.length} claimable rewards totaling {claimableETH} and {claimableRPL}</> }
+            <button className="btn-action" onClick={() => claimRewards?.()}  disabled={selectedClaims.length === 0}>Claim Rewards of {pendingClaimableETH} and {pendingClaimableRPL}</button>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Interval</th>
+                        <th>Amount ETH</th>
+                        <th>Amount RPL</th>
+                        <th><input type="checkbox" onClick={(e) => setSelectedClaims(e.target.checked ? pendingClaims : [])}/></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {pendingClaims.map((claim, index) => (
+                    <tr key={index}>
+                        <td>{claim.rewardIndex}</td>
+                        <td>{parseFloat(formatEther(claim.amountETH)).toFixed(4)} ETH</td>
+                        <td>{parseFloat(formatEther(claim.amountRPL)).toFixed(4)} RPL</td>
+                        <td>
+                        <input
+                            type="checkbox"
+                            checked={selectedClaims.includes(claim)}
+                            onChange={() => claimInterval(index)}
+                        />
+                        </td>
+                    </tr>
+                    ))}
+                </tbody>
+            </table>
         </div>
+        <div className="rocket-panel">
+            {distributeMinipoolBalanceLoading &&
+                <div className="action-panel loading">
+                    <div className="spinner"></div>
+                    <p>Distributing Minipools Balances</p>
+                </div>
+            }
+            <h2>Minipool Balances </h2>
+                <p>You have {minipoolCount.toString()} Minipool(s).</p>
+                <button className="btn-action" onClick={() => distributeMinipoolBalance?.()}  disabled={selectedMinipools.length === 0}>Distribute Minipool Balance of {claimableMinipoolETH}</button>
+
+                <table>
+                <thead>
+                    <tr>
+                        <th>Minipool Address</th>
+                        <th>Amount ETH</th>
+                        <th><input type="checkbox" onClick={(e) => setSelectedMinipools(e.target.checked ? nodeMinipools : []) }/></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {nodeMinipools.map((minipool, index) => (
+                    <tr key={index}>
+                        <td><AddressDisplay address={minipool.result}/></td>
+                        <td>{minipool.balance ? parseFloat(formatEther(minipool.balance)).toFixed(4) + " ETH" : "0 ETH"}</td>
+                        <td>
+                        <input
+                            type="checkbox"
+                            checked={selectedMinipools.includes(minipool)}
+                            onChange={() => minipoolToggle(index)}
+                        />
+                        </td>
+                    </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+        <div className="rocket-panel">
+            {claimDistributorRewardsLoading &&
+                <div className="action-panel loading">
+                    <div className="spinner"></div>
+                    <p>Claiming Distribution Rewards</p>
+                </div>
+            }
+            <h2>Fee Distributor</h2>
+            <button className="btn-action" onClick={() => claimDistributorRewards?.()}>Distribute Balance</button>     
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fee Distributor</th>
+                        <th>Amount ETH</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><AddressDisplay address={feeDistributorAddress}/></td>
+                        <td>{feeDistributorBalance ? parseFloat(formatEther(feeDistributorBalance)).toFixed(4) + " ETH" : "0 ETH"}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        </>
     )
 
 }

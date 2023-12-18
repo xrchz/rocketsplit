@@ -80,7 +80,7 @@ function App() {
 
   const [withdrawalAddress, setWithdrawalAddress] = useState(null);
   const [pendingWithdrawalAddress, setPendingWithdrawalAddress] = useState(null);
-  const [nodeAddress, setNodeAddress] = useState(null);
+  const [nodeAddress, setNodeAddress] = useState("");
   const [splitAddress, setSplitAddress] = useState(null);
   const [isRocketSplit, setIsRocketSplit] = useState(false);
 

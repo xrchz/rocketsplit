@@ -199,7 +199,7 @@ const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, no
             <input placeholder={addressPlaceholder} value={nodeAddress} onChange={(e) => { setNodeAddress(e.target.value);  setNodeManagerFunction(null)}}></input>
             <span>{ensName}</span>
             <button disabled={!address || !nodeAddress} onClick={() => lookupWithdrawal()}>Submit</button>
-            {address ? <></> : <>Connect you wallet to get started.</>}
+            {address ? <></> : <>Connect your wallet to get started.</>}
             {pendingWithdrawalAddress && toRocketSplit &&
                 <div className="sub-panel"><p>Pending Node Withdrawal Address Change, <strong>migrating to Rocketsplit 🚀</strong> {pendingWithdrawalAddress}</p><button className="btn-action" onClick = {() => { confirmWithdrawalAddress?.() }}>Confirm Change</button></div>
             }

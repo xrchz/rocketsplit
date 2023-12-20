@@ -12,7 +12,6 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
     const [rocketMerkleDistributorAddress, setRocketMerkleDistributorAddress] = useState(null);
     const [currentIntervalIndex, setCurrentIntervalIndex] = useState(0);
     const [minipoolCount, setMinipoolCount] = useState(0);
-    const [unclaimedIntervals, setUnclaimedIntervals] = useState(null);
     const [pendingClaims, setPendingClaims] = useState([]);
     const [selectedClaims, setSelectedClaims] = useState([]);
 
@@ -183,7 +182,7 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
                         toBlock: toBlock,
                     });
 
-                    if (logs.length == 1 && i > 0) {
+                    if (logs.length === 1 && i > 0) {
                         if (logs[0].args?.submission?.merkleTreeCID) {
                             intervalCIDs[i] = logs[0].args.submission.merkleTreeCID;
                             console.log(`Got ${intervalCIDs[i]} cid for ${i}`); // for debug
@@ -262,7 +261,6 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
             const result = data.map((claimed, index) => !claimed.result ? index : null).filter(index => index !== null);
             console.log(`${nodeAddress} got ${result.length} unclaimed intervals: ${result}`) // TODO: for debug only
 
-            setUnclaimedIntervals(result)
             Promise.all(result.map(ensureCIDForInterval)).then(processCIDs)
         },
     })

@@ -80,7 +80,7 @@ function App() {
 
   const [withdrawalAddress, setWithdrawalAddress] = useState(null);
   const [pendingWithdrawalAddress, setPendingWithdrawalAddress] = useState(null);
-  const [nodeAddress, setNodeAddress] = useState(null);
+  const [nodeAddress, setNodeAddress] = useState("");
   const [splitAddress, setSplitAddress] = useState(null);
   const [isRocketSplit, setIsRocketSplit] = useState(false);
 
@@ -129,7 +129,8 @@ function App() {
                           isRocketSplit={isRocketSplit}/>
                        }
                        {withdrawalAddress &&
-                        <ClaimIntervals nodeAddress={nodeAddress}/>
+                        <ClaimIntervals nodeAddress={nodeAddress}
+                          withdrawalAddress={withdrawalAddress}/>
                        }
                       {!splitAddress &&
                         <MarriageCreator withdrawalAddress={withdrawalAddress} 

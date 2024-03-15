@@ -148,10 +148,7 @@ def withdrawRPL():
     self.RPLRefund -= refundUpToBalance
     if msg.sender == self.RPLRefundee:
       return
-    else:
-      assert msg.sender == self.RPLOwner, "auth"
-  else:
-    assert msg.sender == self.RPLOwner, "auth"
+  assert msg.sender == self.RPLOwner, "auth"
   rocketNodeStaking: RocketNodeStakingInterface = self._getRocketNodeStaking()
   principal: uint256 = self.RPLPrincipal
   remainder: uint256 = rocketNodeStaking.getNodeRPLStake(self.nodeAddress)

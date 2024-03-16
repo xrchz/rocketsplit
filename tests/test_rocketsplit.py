@@ -65,6 +65,8 @@ def rocketsplitFactory(project, accounts, rocketStorage, deployer):
     NameWrapper = Contract(Registry.owner(name_id))
     name_owner_address = NameWrapper.ownerOf(name_id)
     name_owner = accounts[name_owner_address]
+    # send name owner some ETH for gas
+    deployer.transfer(name_owner, '0.1 ETH')
     name_resolver = Registry.resolver(name_id)
     Resolver = Contract(name_resolver)
     name_ttl = Registry.ttl(name_id)
@@ -115,6 +117,8 @@ def migratedMarriageUnconfirmed(rocketsplitFactory, existingNode, RPLOwner, ETHO
 def migratedMarriage(rocketStorage, accounts, migratedMarriageUnconfirmed, existingNode, ETHOwner, RPLOwner):
     existingWithdrawalAddress = rocketStorage.getNodeWithdrawalAddress(existingNode.address)
     existingWithdrawer = accounts[existingWithdrawalAddress]
+    # send some ETH to existingWithdrawer for gas
+    accounts[5].transfer(existingWithdrawer, '0.1 ETH')
     rocketStorage.setWithdrawalAddress(existingNode.address, migratedMarriageUnconfirmed.address, False, sender=existingWithdrawer)
     migratedMarriageUnconfirmed.confirmWithdrawalAddress(sender=RPLOwner)
     assert rocketStorage.getNodeWithdrawalAddress(existingNode.address) == migratedMarriageUnconfirmed.address, "failed to set withdrawal address"
@@ -125,9 +129,9 @@ def test_withdraw_no_ETH_fresh(freshMarriage, RPLOwner, ETHOwner):
         freshMarriage.withdrawETH(sender=RPLOwner)
     prev1 = freshMarriage.balance
     prev2 = ETHOwner.balance
-    freshMarriage.withdrawETH(sender=ETHOwner)
+    receipt = freshMarriage.withdrawETH(sender=ETHOwner)
     assert freshMarriage.balance == prev1
-    assert ETHOwner.balance == prev2
+    assert ETHOwner.balance == prev2 - receipt.total_fees_paid
 
 def test_create_marriage(freshMarriage):
     pass
@@ -141,3 +145,6 @@ def test_anyone_cannot_withdraw_eth(migratedMarriage, RPLOwner, freshAccount):
         migratedMarriage.withdrawETH(sender=RPLOwner)
     with reverts('auth'):
         migratedMarriage.withdrawETH(sender=freshAccount)
+
+def test_withdraw_rewards(freshMarriage):
+    pass # TODO

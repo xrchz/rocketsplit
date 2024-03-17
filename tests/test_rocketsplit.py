@@ -23,6 +23,10 @@ def freshAccount(accounts):
     return accounts[7]
 
 @pytest.fixture(scope='session')
+def coldAccount(accounts):
+    return accounts[8]
+
+@pytest.fixture(scope='session')
 def ETHOwner(accounts):
     return accounts[1]
 
@@ -145,6 +149,34 @@ def test_anyone_cannot_withdraw_eth(migratedMarriage, RPLOwner, freshAccount):
         migratedMarriage.withdrawETH(sender=RPLOwner)
     with reverts('auth'):
         migratedMarriage.withdrawETH(sender=freshAccount)
+
+def test_anyone_cannot_change_withdrawal_address(freshMarriage, freshNode, freshAccount):
+    with reverts('auth'):
+        freshMarriage.changeWithdrawalAddress(freshAccount.address, False, sender=freshAccount)
+    with reverts('auth'):
+        freshMarriage.changeWithdrawalAddress(freshAccount.address, True, sender=freshAccount)
+    with reverts('auth'):
+        freshMarriage.changeWithdrawalAddress(freshNode.address, True, sender=freshAccount)
+
+@pytest.fixture()
+def coldPendingWithdrawalSet(freshMarriage, ETHOwner, coldAccount):
+    freshMarriage.changeWithdrawalAddress(coldAccount.address, False, sender=ETHOwner)
+    return freshMarriage
+
+def test_confirm_wrong_withdrawal_address(coldPendingWithdrawalSet, coldAccount, freshAccount, RPLOwner):
+    with reverts('pendingWithdrawalAddress'):
+        coldPendingWithdrawalSet.confirmChangeWithdrawalAddress(freshAccount.address, False, sender=RPLOwner)
+    with reverts('pendingForce'):
+        coldPendingWithdrawalSet.confirmChangeWithdrawalAddress(coldAccount.address, True, sender=RPLOwner)
+    with reverts('auth'):
+        coldPendingWithdrawalSet.confirmChangeWithdrawalAddress(coldAccount.address, False, sender=freshAccount)
+
+def test_change_withdrawal_address(rocketStorage, freshNode, coldPendingWithdrawalSet, coldAccount, RPLOwner):
+    assert rocketStorage.getNodeWithdrawalAddress(freshNode.address) == coldPendingWithdrawalSet.address
+    coldPendingWithdrawalSet.confirmChangeWithdrawalAddress(coldAccount.address, False, sender=RPLOwner)
+    assert rocketStorage.getNodeWithdrawalAddress(freshNode.address) == coldPendingWithdrawalSet.address
+    rocketStorage.confirmWithdrawalAddress(freshNode.address, sender=coldAccount)
+    assert rocketStorage.getNodeWithdrawalAddress(freshNode.address) == coldAccount.address
 
 def test_withdraw_rewards(freshMarriage):
     pass # TODO

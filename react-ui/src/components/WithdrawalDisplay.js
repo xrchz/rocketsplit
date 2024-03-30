@@ -1,8 +1,8 @@
-import { useBalance, useContractRead, useContractWrite, useNetwork, usePrepareContractWrite, useTransaction, useWaitForTransaction } from 'wagmi'
+import { useAccount, useBalance, useContractRead, useContractWrite, useNetwork, usePrepareContractWrite, useTransaction, useWaitForTransaction } from 'wagmi'
 import RocketSplitABI from '../abi/RocketSplit.json'
 import RocketStorage from '../abi/RocketStorage.json'
 import { useState } from 'react';
-import { keccak256, toHex, zeroAddress } from 'viem';
+import { formatEther, formatUnits, keccak256, parseUnits, toHex, zeroAddress } from 'viem';
 
 const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPendingWithdrawalAddress, toast}) => {
     const [isRocketSplit, setIsRocketSplit] = useState(false);
@@ -10,6 +10,7 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
     const [isEthOwner, setIsEthOwner] = useState(true);
     const [ethFee, setEthFee] = useState(null);
     const [rplFee, setRplFee] = useState(null);
+    const { address } = useAccount();
 
     // Change withdrawal address state.
     const [newWidthdrawalAddress, setNewWithdrawalAddress] = useState(null);
@@ -22,7 +23,10 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
 
     // Stake RPL state.
     const [showStakeRplPanel, setShowStakeRplPanel] = useState(false);
-    const [rplStake, setRplStake] = useState(0);
+    const [rplStake, setRplStake] = useState("0");
+    const [rplTokenAddress, setRplTokenAddress] = useState(null);
+    const [rplAllowance, setRplAllowance] = useState(0);
+    const [rplUserBalance, setRplUserBalance] = useState(0);
 
     const [RPLRefundee, setRPLRefundee] = useState(null);
     const [RPLRefund, setRPLRefund] = useState(null);
@@ -70,6 +74,46 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
             console.log("Rocketpool node manager: " + result);
         }
     })
+
+    // Get the RPL token address
+    useContractRead({
+        address: rocketStorageAddress,
+        abi: RocketStorage,
+        functionName: "getAddress",
+        args: [keccak256(toHex("contract.addressrocketTokenRPL"))],
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => console.log("Error: " + error),
+        onSuccess: (result) => {
+            console.log("RPL Token Address: " + result);
+            setRplTokenAddress(result);
+        }
+    })
+
+    const { refetch: refreshAllowance } = useContractRead({
+        address: rplTokenAddress,
+        abi: [{"constant":true,"inputs":[{"name":"owner","type":"address"},{"name":"spender","type":"address"}],"name":"allowance","outputs":[{"name":"","type":"uint256"}],"type":"function"}],
+        functionName: "allowance",
+        args: [address, withdrawalAddress],
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => console.log("Error: " + error),
+        onSuccess: (result) => {
+            console.log("RPL Allowance: " + formatEther(result));
+            setRplAllowance(formatEther(result));
+        }
+    })
+
+    const { refetch: refreshRPLBalance } = useContractRead({
+        address: rplTokenAddress,
+        abi: [{"constant":true,"inputs":[{"name":"account","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"type":"function"}],
+        functionName: "balanceOf",
+        args: [address], // Address of the user whose balance you want to check
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => console.log("Error: " + error),
+        onSuccess: (result) => {
+            console.log("RPL user Balance: " + formatEther(result));
+            setRplUserBalance(formatEther(result));
+        }
+    });
 
     // Read the marriage contracts fees.
     useContractRead({
@@ -159,6 +203,32 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
         }
     })
 
+    const { config: rplApproveConfig } = usePrepareContractWrite({
+        address: rplTokenAddress,
+        abi: [{"constant":false,"inputs":[{"name":"spender","type":"address"},{"name":"value","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"type":"function"}],
+        functionName: "approve",
+        args: [withdrawalAddress, parseUnits(rplStake, 18)],
+        onError: (error) => {
+            if(error.shortMessage.includes("auth")){
+                setIsRplOwner(false);
+            }
+        }
+    });
+
+    const { write: rplApprove, data: rplApproveData } = useContractWrite(rplApproveConfig);
+
+    const { isLoading: rplApproveLoading } = useWaitForTransaction({
+        hash: rplApproveData?.hash,
+        onLoading: () => console.log("Loading..."),
+        onError: (error) => console.log("Error: " + error),
+        onSuccess: (result) => {
+            console.log("Successfully approved RPL");
+            toast.success("Successfully approved RPL");
+
+            // We need to refresh the allowance after we approve.
+            refreshAllowance?.();
+        }
+    });
 
 
     const { config: withdrawRPLConfig } = usePrepareContractWrite({
@@ -262,34 +332,30 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
         }
     });
 
-
     const { config: stakeRPLConfig } = usePrepareContractWrite({
         address: withdrawalAddress,
         abi: RocketSplitABI.abi,
         functionName: "stakeRPL",
-        args: [rplStake],
+        args: [parseUnits(rplStake, 18)],
         onError: (error) => {
             if(error.shortMessage.includes("auth")){
                 setIsRplOwner(false);
-            }
-
-            if(error.shortMessage.includes("transfer amount exceeds balance")){
-                toast.error("Insufficient RPL balance");
             }
         }
     })
 
     const {write: stakeRPL, data: stakeRPLData} = useContractWrite(stakeRPLConfig);
 
-    useTransaction({
+    const {isLoading: stakeRPLLoading } = useWaitForTransaction({
         hash: stakeRPLData?.hash,
         onLoading: () => console.log("Loading..."),
-        onError: (error) => {
-            console.log("Error: " + error);
-        },
+        onError: (error) => console.log("Error: " + error),
         onSuccess: (result) => {
-            console.log("Successfully staked RPL");
+            console.log("Successfully staked additional RPL.");
             setShowStakeRplPanel(false);
+            toast.success("Successfully staked additional RPL.");
+            refreshAllowance?.();
+            refreshRPLBalance?.();
         }
     });
   
@@ -372,11 +438,25 @@ const WithdrawalDisplay = ({withdrawalAddress, pendingWithdrawalAddress, setPend
             {isRocketSplit && showStakeRplPanel && isRplOwner &&
                 <div className="action-panel">
                     <h2>Stake additional RPL</h2>
-                    <p>This will add RPL principal to the RocketSplit contract</p>
+                    <p>This will add RPL principal to the RocketSplit contract. Your current allowed allowance is {rplAllowance}. Your RPL balance is {Number(rplUserBalance).toFixed(4)}</p>
                     <label htmlFor="stakeRpl">Additional RPL:</label>
-                    <input className="address-input" type="text" id="stakeRpl" name="stakeRpl" onChange={(e) => { setRplStake(e.target.value); }} />
-                    <button disabled={!rplStake} onClick={() => stakeRPL?.()}>Stake Additional RPL</button>
+                    <input className="address-input" type="number" id="stakeRpl" name="stakeRpl" onChange={(e) => { setRplStake(e.target.value); }} />
+                    {Number(rplAllowance) < Number(rplStake) && Number(rplUserBalance) >= Number(rplStake) && <button onClick={() => rplApprove?.()}>Approve RPL</button>}
+                    {Number(rplAllowance) >= Number(rplStake) && Number(rplUserBalance) >= Number(rplStake) && <button disabled={!rplStake} onClick={() => stakeRPL?.()}>Stake Additional RPL</button>}
+                    {Number(rplUserBalance) < Number(rplStake) && <p>Insufficient RPL balance (Balance: {rplUserBalance})</p>}
                     <div className="close-panel" onClick={() => {setShowStakeRplPanel(false)}}>Cancel</div>
+                    {stakeRPLLoading &&
+                        <div className="action-panel loading">
+                            <div className="spinner"></div>
+                            <p>Staking RPL</p>
+                        </div>
+                    }
+                    {rplApproveLoading &&
+                        <div className="action-panel loading">
+                            <div className="spinner"></div>
+                            <p>Approving RPL Allowance</p>
+                        </div>
+                    }
                 </div>
             }
 

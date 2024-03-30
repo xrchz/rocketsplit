@@ -159,6 +159,11 @@ input, button {
 
 button {
   width: 100%;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
 }
 
 .wallet-list {

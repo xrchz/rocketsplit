@@ -157,49 +157,43 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
         }
     })
 
-    async function loadIntervalProofs() {
+    async function loadIntervalProofs(unclaimedIntervals) {
       const pendingClaims = [];
-      let rewardIndex = 0;
 
       try {
-          while (true) { // Loop indefinitely until break
-              let url = new URL(`/rocket-pool/rewards-trees/main/${chain.name.toLowerCase()}/rp-rewards-${chain.name.toLowerCase()}-${rewardIndex}.json`, 'https://raw.githubusercontent.com/');
+          for (const interval of unclaimedIntervals) { // Loop through given intervals
+              const chainName = chain?.id === 17000 ? "holesky" : "mainnet";
+              let url = new URL(`/rocket-pool/rewards-trees/main/${chainName}/rp-rewards-${chainName}-${interval}.json`, 'https://raw.githubusercontent.com/');
 
-              if (chain.name.toLowerCase() === "foundry") {
-                  url = new URL(`/rocket-pool/rewards-trees/main/mainnet/rp-rewards-mainnet-${rewardIndex}.json`, 'https://raw.githubusercontent.com/');
-              }
-
-              console.log("Requesting tree " + url.toString());
+              console.log("Requesting tree for interval " + interval);
               const res = await fetch(url);
 
               if (!res.ok) { // Check if the HTTP request returned a non-successful response status
-                  console.log("Failed to fetch data, stopping fetch loop.");
-                  break; // Exit the loop if fetch fails
+                  console.log(`Failed to fetch data for interval ${interval}, continuing to next.`);
+                  continue; // Continue to next interval if fetch fails
               }
 
-              console.log("Parsing tree " + rewardIndex);
+              console.log("Parsing tree for interval " + interval);
               const data = await res.json();
               const tree = data.nodeRewards;
               const claim = tree[nodeAddress.toLowerCase()];
 
               if (claim) {
                   pendingClaims.push({
-                      rewardIndex,
+                      rewardIndex: interval,
                       amountETH: BigInt(claim.smoothingPoolEth),
                       amountRPL: BigInt(claim.collateralRpl),
                       merkleProof: claim.merkleProof
                   });
               }
-
-              rewardIndex++; // Increment to fetch the next reward
           }
 
           setRewardsLoading(false);
           setPendingClaims(pendingClaims);
       } catch (e) {
-          console.error("An error occurred in findClaimableRewards: ", e);
+          console.error("An error occurred in loadIntervalProofs: ", e);
       }
-  }
+    }
 
     const {refetch: refreshUnclaimedIntervals } = useContractReads({
         enabled: chain && nodeAddress && rocketMerkleDistributorAddress && rocketRewardsPoolAddress && currentIntervalIndex,
@@ -213,8 +207,9 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
         ,
         onSuccess: (data) => {
             const result = data.map((claimed, index) => !claimed.result ? index : null).filter(index => index !== null);
+
             console.log(`${nodeAddress} got ${result.length} unclaimed intervals: ${result}`) // TODO: for debug only
-            loadIntervalProofs()
+            loadIntervalProofs(result)
         },
     })
 

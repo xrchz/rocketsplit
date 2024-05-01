@@ -165,7 +165,7 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
           while (true) { // Loop indefinitely until break
               let url = new URL(`/rocket-pool/rewards-trees/main/${chain.name.toLowerCase()}/rp-rewards-${chain.name.toLowerCase()}-${rewardIndex}.json`, 'https://raw.githubusercontent.com/');
 
-              if (chain.name.toLowerCase() == "foundry") {
+              if (chain.name.toLowerCase() === "foundry") {
                   url = new URL(`/rocket-pool/rewards-trees/main/mainnet/rp-rewards-mainnet-${rewardIndex}.json`, 'https://raw.githubusercontent.com/');
               }
 

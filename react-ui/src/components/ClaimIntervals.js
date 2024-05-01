@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { formatEther, keccak256 } from "viem";
 import { useContractRead, useContractReads, usePublicClient, useNetwork, usePrepareContractWrite, useContractWrite, useWaitForTransaction } from "wagmi";
-import zstd from 'zstandard-wasm';
 import RocketSplitABI from '../abi/RocketSplit.json'
 import AddressDisplay from "./AddressDisplay";
 
@@ -26,8 +25,7 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
     const [claimableMinipoolETH, setClaimableMinipoolETH] = useState(null);
     const [pendingClaimableRPL, setPendingClaimableRPL] = useState(null);
     const [pendingClaimableETH, setPendingClaimableETH] = useState(null);
-
-    const intervalCIDs = [];
+    const [rewardsLoading, setRewardsLoading] = useState(true);
 
     const publicClient = usePublicClient();
     const { chain } = useNetwork();
@@ -159,93 +157,49 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
         }
     })
 
-    async function ensureCIDForInterval(i) {
-        const batchSize = 50000n;
-        const currentBlockNumber = await publicClient.getBlockNumber();
-        let fromBlock = chain?.id === 17000 ? 42724n : 15342713n;  // What block did the reward contract get deployed?
-        let toBlock;
+    async function loadIntervalProofs() {
+      const pendingClaims = [];
+      let rewardIndex = 0;
 
-        while (fromBlock < currentBlockNumber) {
-            toBlock = fromBlock + batchSize - 1n;
-            if (toBlock > currentBlockNumber) {
-                toBlock = currentBlockNumber;
-            }
+      try {
+          while (true) { // Loop indefinitely until break
+              let url = new URL(`/rocket-pool/rewards-trees/main/${chain.name.toLowerCase()}/rp-rewards-${chain.name.toLowerCase()}-${rewardIndex}.json`, 'https://raw.githubusercontent.com/');
 
-            if (!intervalCIDs[i]) {
-                try {
-                    const logs = await publicClient.getContractEvents({
-                        address: rocketRewardsPoolAddress,
-                        abi: rewardsPoolAbi,
-                        eventName: 'RewardSnapshot',
-                        args: { rewardIndex: i },
-                        fromBlock: fromBlock,
-                        toBlock: toBlock,
-                    });
+              if (chain.name.toLowerCase() == "foundry") {
+                  url = new URL(`/rocket-pool/rewards-trees/main/mainnet/rp-rewards-mainnet-${rewardIndex}.json`, 'https://raw.githubusercontent.com/');
+              }
 
-                    if (logs.length === 1 && i > 0) {
-                        if (logs[0].args?.submission?.merkleTreeCID) {
-                            intervalCIDs[i] = logs[0].args.submission.merkleTreeCID;
-                            console.log(`Got ${intervalCIDs[i]} cid for ${i}`); // for debug
-                            return { rewardIndex: i, cid: intervalCIDs[i] };
-                        } else {
-                            console.error(`merkleTreeCID ${i} missing in log: ${logs}`);
-                        }
-                    } else {
-                        console.error(`Wrong number of logs for interval ${i}: ${logs}`);
-                    }
-                } catch (error) {
-                    console.error(`Error fetching events for interval ${i}: ${error}`);
-                }
-            } else {
-                return { rewardIndex: i, cid: intervalCIDs[i] };
-            }
+              console.log("Requesting tree " + url.toString());
+              const res = await fetch(url);
 
-            fromBlock = toBlock + 1n;
-        }
-    }
+              if (!res.ok) { // Check if the HTTP request returned a non-successful response status
+                  console.log("Failed to fetch data, stopping fetch loop.");
+                  break; // Exit the loop if fetch fails
+              }
 
-    function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
+              console.log("Parsing tree " + rewardIndex);
+              const data = await res.json();
+              const tree = data.nodeRewards;
+              const claim = tree[nodeAddress.toLowerCase()];
 
-    async function processCIDs(cids) {
+              if (claim) {
+                  pendingClaims.push({
+                      rewardIndex,
+                      amountETH: BigInt(claim.smoothingPoolEth),
+                      amountRPL: BigInt(claim.collateralRpl),
+                      merkleProof: claim.merkleProof
+                  });
+              }
 
-        // filter out undefined cids
-        // Seems like we can just shift the array. Are rewards 0 indexed?
-        cids = cids.filter(cid => cid)
+              rewardIndex++; // Increment to fetch the next reward
+          }
 
-        await zstd.loadWASM()
-        const pendingClaims = []
-
-        try {
-            for (const {rewardIndex, cid} of cids) {
-                const url = new URL(`/ipfs/${cid}/rp-rewards-${chain.name.toLowerCase()}-${rewardIndex}.json.zst`, 'https://cloudflare-ipfs.com/')
-                console.log("Requesting tree " + url.toString())
-                const res = await fetch(url)
-
-                const decoder = new TextDecoder()
-                const compressed = new Uint8Array(await res.arrayBuffer())
-                const tree = JSON.parse(decoder.decode(zstd.decompress(compressed))).nodeRewards
-                const claim = tree[nodeAddress.toLowerCase()]
-
-                if(claim) {
-                    pendingClaims.push({
-                        rewardIndex,
-                        amountETH: BigInt(claim.smoothingPoolEth),
-                        amountRPL: BigInt(claim.collateralRpl),
-                        merkleProof: claim.merkleProof
-                    })
-                }
-
-                sleep(1000)
-            }
-
-            setPendingClaims(pendingClaims)
-        }
-        catch (e) {
-            console.error(e)
-        }
-    }
+          setRewardsLoading(false);
+          setPendingClaims(pendingClaims);
+      } catch (e) {
+          console.error("An error occurred in findClaimableRewards: ", e);
+      }
+  }
 
     const {refetch: refreshUnclaimedIntervals } = useContractReads({
         enabled: chain && nodeAddress && rocketMerkleDistributorAddress && rocketRewardsPoolAddress && currentIntervalIndex,
@@ -260,8 +214,7 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
         onSuccess: (data) => {
             const result = data.map((claimed, index) => !claimed.result ? index : null).filter(index => index !== null);
             console.log(`${nodeAddress} got ${result.length} unclaimed intervals: ${result}`) // TODO: for debug only
-
-            Promise.all(result.map(ensureCIDForInterval)).then(processCIDs)
+            loadIntervalProofs()
         },
     })
 
@@ -378,36 +331,46 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
                     <p>Distributing Rewards</p>
                 </div>
             }
+            {rewardsLoading &&
+                <div className="action-panel loading">
+                    <div className="spinner"></div>
+                    <p>Searching for claimable rewards</p>
+                </div>
+            }
             <h2>Available Rewards:</h2>
             { pendingClaims && <>{pendingClaims.length} claimable rewards totaling {claimableETH} and {claimableRPL}</> }
-            <button className="btn-action" onClick={() => claimRewards?.()}  disabled={selectedClaims.length === 0}>Claim Rewards of {pendingClaimableETH} and {pendingClaimableRPL}</button>
 
-            <table>
-                <thead>
-                    <tr>
-                        <th>Interval</th>
-                        <th>Amount ETH</th>
-                        <th>Amount RPL</th>
-                        <th><input type="checkbox" onClick={(e) => setSelectedClaims(e.target.checked ? pendingClaims : [])}/></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {pendingClaims.map((claim, index) => (
-                    <tr key={index}>
-                        <td>{claim.rewardIndex}</td>
-                        <td>{parseFloat(formatEther(claim.amountETH)).toFixed(4)} ETH</td>
-                        <td>{parseFloat(formatEther(claim.amountRPL)).toFixed(4)} RPL</td>
-                        <td>
-                        <input
-                            type="checkbox"
-                            checked={selectedClaims.includes(claim)}
-                            onChange={() => claimInterval(index)}
-                        />
-                        </td>
-                    </tr>
-                    ))}
-                </tbody>
-            </table>
+            { pendingClaims && pendingClaims.length > 0 &&
+              <>
+              <button className="btn-action" onClick={() => claimRewards?.()}  disabled={selectedClaims.length === 0}>Claim Rewards of {pendingClaimableETH} and {pendingClaimableRPL}</button>
+              <table>
+                  <thead>
+                      <tr>
+                          <th>Interval</th>
+                          <th>Amount ETH</th>
+                          <th>Amount RPL</th>
+                          <th><input type="checkbox" onClick={(e) => setSelectedClaims(e.target.checked ? pendingClaims : [])}/></th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                      {pendingClaims.map((claim, index) => (
+                      <tr key={index}>
+                          <td>{claim.rewardIndex}</td>
+                          <td>{parseFloat(formatEther(claim.amountETH)).toFixed(4)} ETH</td>
+                          <td>{parseFloat(formatEther(claim.amountRPL)).toFixed(4)} RPL</td>
+                          <td>
+                          <input
+                              type="checkbox"
+                              checked={selectedClaims.includes(claim)}
+                              onChange={() => claimInterval(index)}
+                          />
+                          </td>
+                      </tr>
+                      ))}
+                  </tbody>
+              </table>
+              </>
+            }
         </div>
         <div className="rocket-panel">
             {distributeMinipoolBalanceLoading &&

@@ -186,12 +186,12 @@ def claimDistributorRewards():
   self.allowPaymentsFrom = empty(address)
 
 @external
-def distributeMinipoolBalance(_minipool: DynArray[address, 1024]): # TODO: MAX_MINIPOOLS inlined, as above
+def distributeMinipoolBalance(_minipool: DynArray[address, 1024], _rewardsOnly: bool): # TODO: MAX_MINIPOOLS inlined, as above
   assert msg.sender == self.ETHOwner or msg.sender == self.RPLOwner, "auth"
   for minipoolAddress in _minipool:
     minipool: MinipoolInterface = MinipoolInterface(minipoolAddress)
     self.allowPaymentsFrom = minipoolAddress
-    minipool.distributeBalance(True)
+    minipool.distributeBalance(_rewardsOnly)
   self.allowPaymentsFrom = empty(address)
 
 @internal

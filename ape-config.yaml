@@ -1,8 +1,9 @@
 plugins:
   - name: vyper
   - name: foundry
+  - name: etherscan
 ethereum:
   local:
     default_provider: foundry
 foundry:
-  host: http://localhost:8549
+  host: auto

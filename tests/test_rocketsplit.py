@@ -51,7 +51,7 @@ def RPLOwner(accounts, rocketStorage, RPLToken):
         '5 ETH',
         0,
         0), sender=owner)
-    assert RPLToken.balanceOf(owner) > 10**18, "no RPL received"
+    assert RPLToken.balanceOf(owner) > 500 * 10**18, "not enough RPL received"
     return owner
 
 @pytest.fixture(scope='session')

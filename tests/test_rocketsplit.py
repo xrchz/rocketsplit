@@ -5,36 +5,36 @@ from ape import Contract, reverts
 
 NULL_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-@pytest.fixture(scope='session')
+@pytest.fixture()
 def rocketStorage():
     return Contract('0x1d8f8f00cfa6758d7bE78336684788Fb0ee0Fa46')
 
-@pytest.fixture(scope='session')
+@pytest.fixture()
 def rocketNodeManager(rocketStorage):
     return Contract(rocketStorage.getAddress(keccak('contract.addressrocketNodeManager'.encode())))
 
-@pytest.fixture(scope='session')
+@pytest.fixture()
 def RPLToken(rocketStorage):
     return Contract(rocketStorage.getAddress(keccak('contract.addressrocketTokenRPL'.encode())))
 
-@pytest.fixture(scope='session')
+@pytest.fixture()
 def freshNode(accounts, rocketNodeManager):
     rocketNodeManager.registerNode('testZone', sender=accounts[0])
     return accounts[0]
 
-@pytest.fixture(scope='session')
+@pytest.fixture()
 def freshAccount(accounts):
     return accounts[7]
 
-@pytest.fixture(scope='session')
+@pytest.fixture()
 def coldAccount(accounts):
     return accounts[8]
 
-@pytest.fixture(scope='session')
+@pytest.fixture()
 def ETHOwner(accounts):
     return accounts[1]
 
-@pytest.fixture(scope='session')
+@pytest.fixture()
 def RPLOwner(accounts, rocketStorage, RPLToken):
     owner = accounts[2]
     # buy some RPL
@@ -54,11 +54,11 @@ def RPLOwner(accounts, rocketStorage, RPLToken):
     assert RPLToken.balanceOf(owner) > 500 * 10**18, "not enough RPL received"
     return owner
 
-@pytest.fixture(scope='session')
+@pytest.fixture()
 def existingNode(accounts):
     return accounts['0xa4186193281f7727C070766ba60B63Df74eA4Da1'] # rpl.ramana.eth
 
-@pytest.fixture(scope='session')
+@pytest.fixture()
 def deployer(accounts):
     return accounts[5]
 

@@ -1,6 +1,4 @@
-#pragma version ^0.3.0
-
-import RocketSplit as RocketSplitInterface
+#pragma version ~=0.4.0
 
 MAX_INTERVALS: constant(uint256) = 128
 MAX_PROOF_LENGTH: constant(uint256) = 32
@@ -70,10 +68,10 @@ RPLPrincipal: public(uint256)
 RPLRefundee: public(address)
 RPLRefund: public(uint256)
 
-@external
+@deploy
 def __init__(_rocketStorageAddress: address):
   rocketStorage = RocketStorageInterface(_rocketStorageAddress)
-  RPLToken = RPLInterface(rocketStorage.getAddress(rocketTokenRPLKey))
+  RPLToken = RPLInterface(staticcall rocketStorage.getAddress(rocketTokenRPLKey))
   self.guardian = msg.sender
 
 allowPaymentsFrom: address
@@ -91,6 +89,12 @@ event DeployRocketSplit:
   RPLFee: Fee
   RPLRefund: bool
 
+interface RocketSplitInterface:
+  def setup(_nodeAddress: address,
+            _ETHOwner: address, _RPLOwner: address,
+            _ETHFee: Fee, _RPLFee: Fee,
+            _refundRPL: bool): nonpayable
+
 @external
 def deploy(_nodeAddress: address,
            _ETHOwner: address, _RPLOwner: address,
@@ -98,7 +102,7 @@ def deploy(_nodeAddress: address,
            _refundRPL: bool) -> address:
   assert self.guardian != empty(address), "proxy"
   contract: RocketSplitInterface = RocketSplitInterface(create_minimal_proxy_to(self))
-  contract.setup(_nodeAddress, _ETHOwner, _RPLOwner, _ETHFee, _RPLFee, _refundRPL)
+  extcall contract.setup(_nodeAddress, _ETHOwner, _RPLOwner, _ETHFee, _RPLFee, _refundRPL)
   log DeployRocketSplit(contract.address, _nodeAddress, _ETHOwner, _RPLOwner, _ETHFee, _RPLFee, _refundRPL)
   return contract.address
 
@@ -113,8 +117,8 @@ def setup(_nodeAddress: address,
   self.guardian = msg.sender
   self.nodeAddress = _nodeAddress
   self.distributor = RocketNodeDistributorInterface(
-      RocketNodeDistributorFactoryInterface(
-        rocketStorage.getAddress(rocketNodeDistributorFactoryKey)
+      staticcall RocketNodeDistributorFactoryInterface(
+        staticcall rocketStorage.getAddress(rocketNodeDistributorFactoryKey)
       ).getProxyAddress(_nodeAddress)
     )
   self.ETHOwner = _ETHOwner
@@ -122,76 +126,78 @@ def setup(_nodeAddress: address,
   self.ETHFee = _ETHFee
   self.RPLFee = _RPLFee
   if _refundRPL:
-    self.RPLRefundee = rocketStorage.getNodeWithdrawalAddress(_nodeAddress)
-    self.RPLRefund = self._getRocketNodeStaking().getNodeRPLStake(_nodeAddress)
+    self.RPLRefundee = staticcall rocketStorage.getNodeWithdrawalAddress(_nodeAddress)
+    self.RPLRefund = staticcall self._getRocketNodeStaking().getNodeRPLStake(_nodeAddress)
 
 @internal
 def _getRocketNodeStaking() -> RocketNodeStakingInterface:
-  rocketNodeStakingAddress: address = rocketStorage.getAddress(rocketNodeStakingKey)
+  rocketNodeStakingAddress: address = staticcall rocketStorage.getAddress(rocketNodeStakingKey)
   return RocketNodeStakingInterface(rocketNodeStakingAddress)
 
 @external
 def stakeRPL(_amount: uint256):
   assert msg.sender == self.RPLOwner, "auth"
   rocketNodeStaking: RocketNodeStakingInterface = self._getRocketNodeStaking()
-  assert RPLToken.transferFrom(msg.sender, self, _amount), "transferFrom"
-  assert RPLToken.approve(rocketNodeStaking.address, _amount), "approve"
-  rocketNodeStaking.stakeRPLFor(self.nodeAddress, _amount)
-  self.RPLPrincipal = rocketNodeStaking.getNodeRPLStake(self.nodeAddress) - self.RPLRefund
+  assert extcall RPLToken.transferFrom(msg.sender, self, _amount), "transferFrom"
+  assert extcall RPLToken.approve(rocketNodeStaking.address, _amount), "approve"
+  extcall rocketNodeStaking.stakeRPLFor(self.nodeAddress, _amount)
+  self.RPLPrincipal = staticcall rocketNodeStaking.getNodeRPLStake(self.nodeAddress) - self.RPLRefund
 
 @external
 def withdrawRPL():
   refund: uint256 = self.RPLRefund
   if 0 < refund:
-    refundUpToBalance: uint256 = min(RPLToken.balanceOf(self), refund)
-    assert RPLToken.transfer(self.RPLRefundee, refundUpToBalance), "refund"
+    refundUpToBalance: uint256 = min(staticcall RPLToken.balanceOf(self), refund)
+    assert extcall RPLToken.transfer(self.RPLRefundee, refundUpToBalance), "refund"
     self.RPLRefund -= refundUpToBalance
     if msg.sender == self.RPLRefundee:
       return
   assert msg.sender == self.RPLOwner, "auth"
   rocketNodeStaking: RocketNodeStakingInterface = self._getRocketNodeStaking()
   principal: uint256 = self.RPLPrincipal
-  remainder: uint256 = rocketNodeStaking.getNodeRPLStake(self.nodeAddress)
+  remainder: uint256 = staticcall rocketNodeStaking.getNodeRPLStake(self.nodeAddress)
   amount: uint256 = principal - remainder
   if 0 < amount:
-    assert RPLToken.transfer(msg.sender, amount), "transfer"
+    assert extcall RPLToken.transfer(msg.sender, amount), "transfer"
     self.RPLPrincipal = remainder
 
 @external
 def withdrawETH():
   assert msg.sender == self.ETHOwner, "auth"
   # TODO: withdraw ETH from the node if possible?
-  assert self._getRocketNodeStaking().getNodeRPLStake(self.nodeAddress) == 0, "stake"
+  assert staticcall self._getRocketNodeStaking().getNodeRPLStake(self.nodeAddress) == 0, "stake"
   assert self.RPLRefund == 0, "refund"
   assert self.RPLPrincipal == 0, "principal"
   send(msg.sender, self.balance, gas=msg.gas)
 
 @external
 def claimMerkleRewards(
-    _rewardIndex: DynArray[uint256, 128], # TODO: MAX_INTERVALS inlined because of https://github.com/vyperlang/vyper/issues/3294
-    _amountRPL: DynArray[uint256, 128],
-    _amountETH: DynArray[uint256, 128],
-    _merkleProof: DynArray[DynArray[bytes32, 32], 128]): # TODO: MAX_PROOF_LENGTH inlined, same reason as above
+    _rewardIndex: DynArray[uint256, MAX_INTERVALS],
+    _amountRPL: DynArray[uint256, MAX_INTERVALS],
+    _amountETH: DynArray[uint256, MAX_INTERVALS],
+    _merkleProof: DynArray[DynArray[bytes32, MAX_PROOF_LENGTH], MAX_INTERVALS]):
   assert msg.sender == self.RPLOwner or msg.sender == self.ETHOwner, "auth"
-  rocketMerkleDistributor: RocketMerkleDistributorInterface = RocketMerkleDistributorInterface(rocketStorage.getAddress(rocketMerkleDistributorKey))
+  rocketMerkleDistributor: RocketMerkleDistributorInterface = RocketMerkleDistributorInterface(
+    staticcall rocketStorage.getAddress(rocketMerkleDistributorKey)
+  )
   self.allowPaymentsFrom = rocketMerkleDistributor.address
-  rocketMerkleDistributor.claim(self.nodeAddress, _rewardIndex, _amountRPL, _amountETH, _merkleProof)
+  extcall rocketMerkleDistributor.claim(self.nodeAddress, _rewardIndex, _amountRPL, _amountETH, _merkleProof)
   self.allowPaymentsFrom = empty(address)
 
 @external
 def claimDistributorRewards():
   assert msg.sender == self.ETHOwner, "auth"
   self.allowPaymentsFrom = self.distributor.address
-  self.distributor.distribute()
+  extcall self.distributor.distribute()
   self.allowPaymentsFrom = empty(address)
 
 @external
-def distributeMinipoolBalance(_minipool: DynArray[address, 1024], _rewardsOnly: bool): # TODO: MAX_MINIPOOLS inlined, as above
+def distributeMinipoolBalance(_minipool: DynArray[address, MAX_MINIPOOLS], _rewardsOnly: bool):
   assert msg.sender == self.ETHOwner or (msg.sender == self.RPLOwner and _rewardsOnly), "auth"
-  for minipoolAddress in _minipool:
+  for minipoolAddress: address in _minipool:
     minipool: MinipoolInterface = MinipoolInterface(minipoolAddress)
     self.allowPaymentsFrom = minipoolAddress
-    minipool.distributeBalance(_rewardsOnly)
+    extcall minipool.distributeBalance(_rewardsOnly)
   self.allowPaymentsFrom = empty(address)
 
 @internal
@@ -199,17 +205,17 @@ def _calculateFee(_amount: uint256, _fee: Fee) -> uint256:
   if _fee.numerator == 0:
     return 0
   else:
-    return (_amount * _fee.numerator) / _fee.denominator
+    return (_amount * _fee.numerator) // _fee.denominator
 
 @external
 def withdrawRewards():
   assert msg.sender == self.RPLOwner, "auth"
 
-  amount: uint256 = RPLToken.balanceOf(self)
+  amount: uint256 = staticcall RPLToken.balanceOf(self)
   fee: uint256 = self._calculateFee(amount, self.RPLFee)
   if fee != 0:
-    assert RPLToken.transfer(self.ETHOwner, fee), "transfer fee"
-  assert RPLToken.transfer(self.RPLOwner, amount - fee), "transfer reward"
+    assert extcall RPLToken.transfer(self.ETHOwner, fee), "transfer fee"
+  assert extcall RPLToken.transfer(self.RPLOwner, amount - fee), "transfer reward"
 
   fee = self._calculateFee(self.balance, self.ETHFee)
   if fee != 0:
@@ -218,15 +224,16 @@ def withdrawRewards():
 
 @external
 def confirmWithdrawalAddress():
-  rocketStorage.confirmWithdrawalAddress(self.nodeAddress)
+  extcall rocketStorage.confirmWithdrawalAddress(self.nodeAddress)
   rocketNodeStaking: RocketNodeStakingInterface = self._getRocketNodeStaking()
-  self.RPLPrincipal = rocketNodeStaking.getNodeRPLStake(self.nodeAddress) - self.RPLRefund
+  self.RPLPrincipal = staticcall rocketNodeStaking.getNodeRPLStake(self.nodeAddress) - self.RPLRefund
 
 @external
 def ensSetName(_name: String[256]):
   assert msg.sender == self.RPLOwner or msg.sender == self.ETHOwner or msg.sender == self.guardian, "auth"
-  EnsRevRegInterface(
-    EnsRegInterface(ensRegAddress).owner(addrReverseNode)).setName(_name)
+  extcall EnsRevRegInterface(
+    staticcall EnsRegInterface(ensRegAddress).owner(addrReverseNode)
+  ).setName(_name)
 
 @external
 def onERC1155Received(_operator: address, _from: address, _id: uint256, _value: uint256, _data: Bytes[1]) -> bytes4:
@@ -243,4 +250,4 @@ def confirmChangeWithdrawalAddress(_newWithdrawalAddress: address, _force: bool)
   assert msg.sender == self.RPLOwner, "auth"
   assert _newWithdrawalAddress == self.pendingWithdrawalAddress, "pendingWithdrawalAddress"
   assert _force == self.pendingForce, "pendingForce"
-  rocketStorage.setWithdrawalAddress(self.nodeAddress, _newWithdrawalAddress, _force)
+  extcall rocketStorage.setWithdrawalAddress(self.nodeAddress, _newWithdrawalAddress, _force)

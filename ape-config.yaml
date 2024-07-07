@@ -2,6 +2,7 @@ plugins:
   - name: vyper
   - name: foundry
   - name: etherscan
+  - name: ens
 ethereum:
   local:
     default_provider: foundry

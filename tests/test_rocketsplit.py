@@ -1,7 +1,8 @@
 import pytest
 from datetime import datetime
 from eth_utils import keccak
-from ape import Contract, reverts
+from ape import Contract, reverts, chain
+from ape_ens.utils import namehash
 
 NULL_ADDRESS = '0x0000000000000000000000000000000000000000'
 
@@ -16,6 +17,18 @@ def rocketNodeManager(rocketStorage):
 @pytest.fixture()
 def RPLToken(rocketStorage):
     return Contract(rocketStorage.getAddress(keccak('contract.addressrocketTokenRPL'.encode())))
+
+@pytest.fixture()
+def rocketNodeStaking(rocketStorage):
+    return Contract(rocketStorage.getAddress(keccak('contract.addressrocketNodeStaking'.encode())))
+
+@pytest.fixture()
+def rocketDAOProtocolSettingsRewards(rocketStorage):
+    return Contract(rocketStorage.getAddress(keccak('contract.addressrocketDAOProtocolSettingsRewards'.encode())))
+
+@pytest.fixture()
+def rocketMinipoolManager(rocketStorage):
+    return Contract(rocketStorage.getAddress(keccak('contract.addressrocketMinipoolManager'.encode())))
 
 @pytest.fixture()
 def freshNode(accounts, rocketNodeManager):
@@ -65,26 +78,6 @@ def deployer(accounts):
 @pytest.fixture()
 def rocketsplitFactory(project, accounts, rocketStorage, deployer):
     factory = project.RocketSplit.deploy(rocketStorage.address, sender=deployer)
-    Registry = Contract('0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e')
-    namehash = project.provider.web3.ens.namehash
-    name = 'rocketsplit.eth'
-    name_id = namehash(name)
-    NameWrapper = Contract(Registry.owner(name_id))
-    name_owner_address = NameWrapper.ownerOf(name_id)
-    name_owner = accounts[name_owner_address]
-    # send name owner some ETH for gas
-    deployer.transfer(name_owner, '0.1 ETH')
-    name_resolver = Registry.resolver(name_id)
-    Resolver = Contract(name_resolver)
-    name_ttl = Registry.ttl(name_id)
-    Resolver.setAddr(name_id, factory.address, sender=name_owner)
-    NameWrapper.setRecord(name_id, factory.address, name_resolver, name_ttl, sender=name_owner)
-    factory.ensSetName(name, sender=deployer)
-    RevRegistry = Contract(Registry.owner(namehash('addr.reverse')))
-    factory_id = RevRegistry.node(factory.address)
-    assert Resolver.addr(name_id) == factory.address, "failed to set factory ens"
-    assert NameWrapper.ownerOf(name_id) == factory.address, "failed to set factory wrapped ens"
-    assert Contract(Registry.resolver(factory_id)).name(factory_id) == name, "failed to set factory reverse record"
     return factory
 
 @pytest.fixture()
@@ -198,7 +191,7 @@ def test_change_withdrawal_address(rocketStorage, freshNode, coldPendingWithdraw
     rocketStorage.confirmWithdrawalAddress(freshNode.address, sender=coldAccount)
     assert rocketStorage.getNodeWithdrawalAddress(freshNode.address) == coldAccount.address
 
-def test_withdraw_rewards(marriageETHFeeOnly, RPLOwner, ETHOwnerNode, freshAccount, RPLToken):
+def test_withdraw_rewards(marriageETHFeeOnly, RPLOwner, ETHOwnerNode, freshAccount, RPLToken, ETHOwner):
     assert marriageETHFeeOnly.balance == 0
     # do ETH via fee distributor to avoid external payment not allowed error
     # note: fee distributor does an even split when there are no minipools
@@ -209,7 +202,103 @@ def test_withdraw_rewards(marriageETHFeeOnly, RPLOwner, ETHOwnerNode, freshAccou
     RPLToken.transfer(marriageETHFeeOnly, '5 ETH', sender=RPLOwner)
     assert RPLToken.balanceOf(marriageETHFeeOnly) == 5 * 10 ** 18
     assert marriageETHFeeOnly.balance == myPortion
-    # TODO call withdrawRewards
-    # TODO check bad and good auth
-    # TODO check balances (and fee)
-    pass
+    # Make sure we can not call withdrawRewards as the ETH owner.
+    with reverts('auth'):
+        marriageETHFeeOnly.withdrawRewards(sender=ETHOwner)
+
+    # Make sure we can not call withdrawRewards as a random account.
+    with reverts('auth'):
+        marriageETHFeeOnly.withdrawRewards(sender=freshAccount)
+
+    bal1 = ETHOwner.balance
+    # Make sure we can call withdrawRewards as the RPL owner.
+    marriageETHFeeOnly.withdrawRewards(sender=RPLOwner)
+
+    assert ETHOwner.balance > bal1 # TODO What is the correct math here?
+
+
+def test_ens_set_name(rocketsplitFactory, accounts, deployer):
+    Registry = Contract('0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e')
+    name = 'rocketsplit.eth'
+    name_id = namehash(name)
+    NameWrapper = Contract(Registry.owner(name_id))
+    name_owner_address = NameWrapper.ownerOf(name_id)
+    name_owner = accounts[name_owner_address]
+    # send name owner some ETH for gas
+    deployer.transfer(name_owner, '0.1 ETH')
+    name_resolver = Registry.resolver(name_id)
+    Resolver = Contract(name_resolver)
+    name_ttl = Registry.ttl(name_id)
+    Resolver.setAddr(name_id, rocketsplitFactory.address, sender=name_owner)
+    NameWrapper.setRecord(name_id, rocketsplitFactory.address, name_resolver, name_ttl, sender=name_owner)
+    rocketsplitFactory.ensSetName(name, sender=deployer)
+    RevRegistry = Contract(Registry.owner(namehash('addr.reverse')))
+    factory_id = RevRegistry.node(rocketsplitFactory.address)
+    assert Resolver.addr(name_id) == rocketsplitFactory.address, "failed to set factory ens"
+    assert NameWrapper.ownerOf(name_id) == rocketsplitFactory.address, "failed to set factory wrapped ens"
+    assert Contract(Registry.resolver(factory_id)).name(factory_id) == name, "failed to set factory reverse record"
+
+
+def test_withdraw_eth(marriageETHFeeOnly, ETHOwner, RPLOwner, freshAccount):
+    # Lets drop some ETH into the marriage.
+    # do ETH via fee distributor to avoid external payment not allowed error
+    ethRewardAmount = 2 * 10 ** 17
+    freshAccount.transfer(marriageETHFeeOnly.distributor(), ethRewardAmount)
+
+    # Check that we can't withdraw as the RPL owner.
+    with reverts('auth'):
+        marriageETHFeeOnly.withdrawETH(sender=RPLOwner)
+
+    # Check that we can't be some random account.
+    with reverts('auth'):
+        marriageETHFeeOnly.withdrawETH(sender=freshAccount)
+
+    # Make sure the ETHOwner can withdraw the ETH.
+    prev1 = marriageETHFeeOnly.balance
+    prev2 = ETHOwner.balance
+    receipt = marriageETHFeeOnly.withdrawETH(sender=ETHOwner)
+    assert marriageETHFeeOnly.balance == 0
+    assert ETHOwner.balance == prev1 + prev2 - receipt.total_fees_paid
+
+def test_withdraw_rpl_no_refund(marriageETHFeeOnly, rocketNodeStaking, RPLOwner, RPLToken, ETHOwner, chain, rocketDAOProtocolSettingsRewards):
+
+    # Take a snapshot of the RPL balance.
+    prev = RPLToken.balanceOf(RPLOwner)
+
+    # Lets stake some RPL into the marriage.
+    RPLToken.approve(marriageETHFeeOnly.address, "2 ETH", sender=RPLOwner)
+    marriageETHFeeOnly.stakeRPL("2 ETH", sender=RPLOwner)
+
+    # Check that the RPL was staked properly.
+    assert RPLToken.balanceOf(RPLOwner) == prev - 2 * 10 ** 18
+    assert rocketNodeStaking.getNodeRPLStake(ETHOwner.address) == 2 * 10 ** 18
+
+    # Now, lets withdraw the RPL.
+    # First from the node.
+    # We need to go into to the future to get past the DAO rocketDAOProtocolSettingsRewards.getRewardsClaimIntervalTime setting.
+    chain.pending_timestamp += rocketDAOProtocolSettingsRewards.getRewardsClaimIntervalTime()
+    rocketNodeStaking.withdrawRPL(ETHOwner, "2 ETH", sender=ETHOwner)
+
+    # Then withdraw the RPL from the marriage.
+    marriageETHFeeOnly.withdrawRPL(sender=RPLOwner)
+
+    # Check that the RPL was withdrawn properly and the RPLOwner is made whole.
+    assert RPLToken.balanceOf(RPLOwner) == prev
+
+def test_distribute_minipool_balances(migratedMarriage, existingNode, rocketMinipoolManager, ETHOwner):
+    # Make sure we have minipools to distribute.
+    minipool_count = rocketMinipoolManager.getNodeMinipoolCount(existingNode)
+    assert minipool_count > 0
+
+    # Get the first minipool on the existingNode.
+    minipool = Contract(rocketMinipoolManager.getNodeMinipoolAt(existingNode, 0))
+
+    # Make sure the minipool has a balance and the marriage does not.
+    assert minipool.balance > 0
+    assert migratedMarriage.balance == 0
+
+    # Make sure we can distribute a minipool balance to the marriage.
+    migratedMarriage.distributeMinipoolBalance([minipool], False, sender=ETHOwner)
+
+    assert minipool.balance == 0
+    assert migratedMarriage.balance > 0 # TODO what is the correct math here?

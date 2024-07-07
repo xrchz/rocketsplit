@@ -202,6 +202,7 @@ def test_withdraw_rewards(marriageETHFeeOnly, RPLOwner, ETHOwnerNode, freshAccou
     RPLToken.transfer(marriageETHFeeOnly, '5 ETH', sender=RPLOwner)
     assert RPLToken.balanceOf(marriageETHFeeOnly) == 5 * 10 ** 18
     assert marriageETHFeeOnly.balance == myPortion
+
     # Make sure we can not call withdrawRewards as the ETH owner.
     with reverts('auth'):
         marriageETHFeeOnly.withdrawRewards(sender=ETHOwner)
@@ -210,11 +211,16 @@ def test_withdraw_rewards(marriageETHFeeOnly, RPLOwner, ETHOwnerNode, freshAccou
     with reverts('auth'):
         marriageETHFeeOnly.withdrawRewards(sender=freshAccount)
 
-    bal1 = ETHOwner.balance
+    # Calculate RPL owner's fee on the ETH rewards
+    ETHFee = marriageETHFeeOnly.ETHFee()
+    fee = (myPortion * ETHFee['numerator']) // ETHFee['denominator']
+
+    initBalance = ETHOwner.balance
+
     # Make sure we can call withdrawRewards as the RPL owner.
     marriageETHFeeOnly.withdrawRewards(sender=RPLOwner)
 
-    assert ETHOwner.balance > bal1 # TODO What is the correct math here?
+    assert ETHOwner.balance == initBalance + myPortion - fee
 
 
 def test_ens_set_name(rocketsplitFactory, accounts, deployer):

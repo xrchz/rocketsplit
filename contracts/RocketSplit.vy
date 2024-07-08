@@ -1,4 +1,6 @@
 #pragma version ~=0.4.0
+#pragma evm-version cancun
+#pragma optimize gas
 
 MAX_INTERVALS: constant(uint256) = 128
 MAX_PROOF_LENGTH: constant(uint256) = 32

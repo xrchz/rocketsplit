@@ -159,7 +159,7 @@ const NodeFinder = ({setWithdrawalAddress,
             setPendingWithdrawalAddress(null);
         }
     });
-
+    
     const lookupWithdrawal = async () => {
         console.log("Looking up withdrawal for address: " + nodeAddress);
 
@@ -214,6 +214,7 @@ const NodeFinder = ({setWithdrawalAddress,
             lookupWithdrawal();
         }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     , [nodeAddress]);
 
     return(

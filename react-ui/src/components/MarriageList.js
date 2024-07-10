@@ -22,7 +22,7 @@ const MarriageList = ({nodeAddress, splitAddress, setPendingWithdrawalAddress, i
             const pastBlock = latestBlock - BigInt(5000);   // @TODO: probably should make this variable.
 
             // In the RocektsplitABI.abi, filter the DeployRocketSplit event into a single object.
-            const deployEvent = RocketSplitABI.abi.filter((item) => {
+            const deployEvent = RocketSplitABI.filter((item) => {
                 return item.name === "DeployRocketSplit";
             })[0];
 
@@ -62,7 +62,7 @@ const MarriageList = ({nodeAddress, splitAddress, setPendingWithdrawalAddress, i
             <div className="wallet-list">
                 {wallets.map((wallet, i) => {
                     const decodedLogs = decodeEventLog({
-                        abi: RocketSplitABI.abi,
+                        abi: RocketSplitABI,
                         data: wallet.data,
                         topics: wallet.topics,
                     });

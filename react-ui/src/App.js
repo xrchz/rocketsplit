@@ -2,7 +2,7 @@ import './App.css';
 import '@rainbow-me/rainbowkit/styles.css';
 import 'react-toastify/dist/ReactToastify.css';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   getDefaultWallets,
   RainbowKitProvider,
@@ -83,6 +83,17 @@ function App() {
   const [nodeAddress, setNodeAddress] = useState("");
   const [splitAddress, setSplitAddress] = useState(null);
   const [isRocketSplit, setIsRocketSplit] = useState(false);
+
+  useEffect(() => {
+    const savedValue = sessionStorage.getItem('nodeAddress');
+    if (savedValue) {
+      setNodeAddress(savedValue);
+    }
+  }, []);
+
+  useEffect(() => {
+    sessionStorage.setItem('nodeAddress', nodeAddress);
+  }, [nodeAddress]);
 
   return (
      <WagmiConfig config={wagmiConfig}>

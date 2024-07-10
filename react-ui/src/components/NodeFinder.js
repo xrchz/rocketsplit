@@ -4,7 +4,16 @@ import RocketSplitABI from "../abi/RocketSplit.json";
 import { useAccount, useContractRead, useContractWrite, useNetwork, usePrepareContractWrite, usePublicClient, useWaitForTransaction } from "wagmi";
 import { normalize } from "viem/ens";
 
-const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, nodeAddress, toast, pendingWithdrawalAddress, setPendingWithdrawalAddress, setSplitAddress, isRocketSplit, setIsRocketSplit}) => {
+const NodeFinder = ({setWithdrawalAddress,
+                    withdrawalAddress,
+                    setNodeAddress,
+                    nodeAddress,
+                    toast,
+                    pendingWithdrawalAddress,
+                    setPendingWithdrawalAddress,
+                    setSplitAddress,
+                    isRocketSplit
+                    }) => {
 
     const [ nodeManagerAddress, setNodeManagerAddress ] = useState(null);
     const [ nodeManagerFunction, setNodeManagerFunction ] = useState(null);
@@ -45,11 +54,13 @@ const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, no
     // We need to know if the pendingWithdrawalAddress is a Rocketsplit address,
     // If not we can call directly to the storage contract as long as we are connected as the pending address.
     useContractRead({
-        abi: RocketSplitABI.abi,
+        abi: RocketSplitABI,
         address: pendingWithdrawalAddress,
         functionName: "guardian",
         onLoading: () => console.log("Loading..."),
-        onError: (error) => setToRocketSplit(false),
+        onError: (error) => {
+            setToRocketSplit(false)
+        },
         onSuccess: (result) => {
             console.log("Do we have a rocket split address?: " + result);
             setToRocketSplit(true)
@@ -70,8 +81,15 @@ const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, no
         onSuccess: (result) => {
             switch(nodeManagerFunction) {
                 case "getNodeExists":
-                    console.log("Node exists: " + result);
                     if(result === true) {
+                        console.log(
+                            "  ____            _        _             _ _ _\n" +
+                            " |  _ \\ ___   ___| | _____| |_ ___ _ __ | (_) |_\n" +
+                            " | |_) / _ \\ / __| |/ / _ \\ __/ __| '_ \\| | | __|\n" +
+                            " |  _ < (_) | (__|   <  __/ |_\\__ \\ |_) | | | |_\n" +
+                            " |_| \\_\\___/ \\___|_|\\_\\___|\\__|___/ .__/|_|_|\\__|\n" +
+                            "                                  |_|"
+                          );
                         setNodeManagerFunction("getNodeWithdrawalAddress");
                     }
                     else {
@@ -108,7 +126,7 @@ const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, no
     // Prepare the contract write to update pending withdrawal address.
     const { config } = usePrepareContractWrite({
         address: pendingWithdrawalAddress,
-        abi: RocketSplitABI.abi,
+        abi: RocketSplitABI,
         functionName: "confirmWithdrawalAddress",
         args: [],
     });
@@ -141,7 +159,7 @@ const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, no
             setPendingWithdrawalAddress(null);
         }
     });
-
+    
     const lookupWithdrawal = async () => {
         console.log("Looking up withdrawal for address: " + nodeAddress);
 
@@ -191,7 +209,13 @@ const NodeFinder = ({setWithdrawalAddress, withdrawalAddress, setNodeAddress, no
     // eslint-disable-next-line react-hooks/exhaustive-deps
     , [isSuccess]);
 
-    console.log("The current widhtdrawal address is: " + isRocketSplit);
+    useEffect(() => {
+        if(nodeAddress) {
+            lookupWithdrawal();
+        }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    , [nodeAddress]);
 
     return(
         <div className="rocket-panel">

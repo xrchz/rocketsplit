@@ -38,9 +38,9 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
 
 
     // Setup the contract config.
-    const { config } = usePrepareContractWrite({
+    const { config, error } = usePrepareContractWrite({
         address: chain?.id === 17000 ? process.env.REACT_APP_ROCKETSPLIT_FACTORY_ADDRESS_HOLESKY : process.env.REACT_APP_ROCKETSPLIT_FACTORY_ADDRESS_MAINNET,
-        abi: RocketSplitABI.abi,
+        abi: RocketSplitABI,
         functionName: "deploy",
         enabled: ethOwner && rplOwner && ethNumerator && ethDenominator && rplNumerator && rplDenominator,
         args: [nodeAddress, ethOwner, rplOwner, [parseInt(ethNumerator), parseInt(ethDenominator)], [parseInt(rplNumerator), parseInt(rplDenominator)], rplRefund],
@@ -55,7 +55,7 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
     if(isSuccess) {
         // Parse the event logs.
         const decodedLogs = decodeEventLog({
-            abi: RocketSplitABI.abi,
+            abi: RocketSplitABI,
             data: receipt?.logs[0].data,
             topics: receipt?.logs[0].topics,
         });
@@ -235,7 +235,7 @@ const MarriageCreator = ({withdrawalAddress, nodeAddress, setSplitAddress}) => {
                 </div>
                 <button disabled={!ethOwner || !rplOwner || !ethNumerator || !ethDenominator || !rplNumerator || !rplDenominator} onClick={() => createMarriage()}>Create Marriage</button>
                 {isSuccess && <p>Success!</p>}
-
+                {error && (<div>An error occurred preparing the transaction: {error.message}</div>)}
                 {isLoading &&
                     <div className="action-panel loading">
                         <div className="spinner"></div>

@@ -80,7 +80,6 @@ body {
 .rocket-info-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  background-color: #d4d1d1;
   padding: 20px;
   border: 1px solid #e8e6e6;
   border-radius: 5px;
@@ -124,6 +123,10 @@ body {
   opacity: .95;
   align-items: center;
   z-index: 100;
+}
+
+.action-panel.loading {
+  min-height: 100px;
 }
 
 .loading .spinner {
@@ -170,7 +173,7 @@ button:disabled {
   margin: 10px 0;
   padding: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
 }
 
 .btn-action {
@@ -278,15 +281,16 @@ button:disabled {
 .wallet-actions li {
   display: block;
   list-style: none;
-  padding: 10px;
-  border: 1px solid #201b23;
-  cursor: pointer;
   border-radius: 5px;
 }
 
-.wallet-actions li:hover {
-  background-color: #201b23;
-  color: white;
+.wallet-actions li div {
+  font-size: .7em;
+  text-align: center;
+}
+
+.large-address {
+  font-size: 2.5em;
 }
 
 .toggle-button {

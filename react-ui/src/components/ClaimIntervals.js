@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { formatEther, keccak256 } from "viem";
 import { useContractRead, useContractReads, usePublicClient, useNetwork, usePrepareContractWrite, useContractWrite, useWaitForTransaction } from "wagmi";
 import RocketSplitABI from '../abi/RocketSplit.json'
+import RocketMinipoolDelegateABI from '../abi/RocketMinipoolDelegate.json'
 import AddressDisplay from "./AddressDisplay";
 
 const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
@@ -16,6 +17,7 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
 
     const [nodeMinipools, setNodeMinipools] = useState([]);
     const [selectedMinipools, setSelectedMinipools] = useState([]);
+    const [rewardsOnly, setRewardsOnly] = useState(true);
 
     const [feeDistributorAddress, setFeeDistributorAddress] = useState('');
     const [feeDistributorBalance, setFeeDistributorBalance] = useState(null);
@@ -157,6 +159,21 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
         }
     })
 
+    // Get the finalized status of all minipools.
+    useContractReads({
+        enabled: nodeAddress && minipoolCount > 0,
+        contracts: nodeMinipools.map((minipool, index) =>
+            ({address: minipool.result,
+              abi: RocketMinipoolDelegateABI,
+              functionName: "getFinalised",
+            })),
+        onError: (error) => console.log("Error: " + error),
+        onSuccess: (data) => {
+           const updatedData = data.map((result, index) => ({...nodeMinipools[index], finalized: result.result}));
+           setNodeMinipools(updatedData);
+        }
+    })
+
     async function loadIntervalProofs(unclaimedIntervals) {
       const pendingClaims = [];
 
@@ -165,7 +182,7 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
               const chainName = chain?.id === 17000 ? "holesky" : "mainnet";
               let url = new URL(`/rocket-pool/rewards-trees/main/${chainName}/rp-rewards-${chainName}-${interval}.json`, 'https://raw.githubusercontent.com/');
 
-              console.log("Requesting tree for interval " + interval);
+              //console.log("Requesting tree for interval " + interval);
               const res = await fetch(url);
 
               if (!res.ok) { // Check if the HTTP request returned a non-successful response status
@@ -173,7 +190,7 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
                   continue; // Continue to next interval if fetch fails
               }
 
-              console.log("Parsing tree for interval " + interval);
+              //console.log("Parsing tree for interval " + interval);
               const data = await res.json();
               const tree = data.nodeRewards;
               const claim = tree[nodeAddress.toLowerCase()];
@@ -215,7 +232,7 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
 
     const { refetch: refreshDistributor } = useContractRead({
         address: withdrawalAddress,
-        abi: RocketSplitABI.abi,
+        abi: RocketSplitABI,
         functionName: "distributor",
         enabled: withdrawalAddress,
         onLoading: () => console.log("Loading..."),
@@ -232,7 +249,7 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
 
     const { config } = usePrepareContractWrite({
         address: withdrawalAddress,
-        abi: RocketSplitABI.abi,
+        abi: RocketSplitABI,
         functionName: "claimMerkleRewards",
         args: [selectedClaims.map(claim => claim.rewardIndex), selectedClaims.map(claim => claim.amountRPL), selectedClaims.map(claim => claim.amountETH), selectedClaims.map(claim => claim.merkleProof)],
         onLoading: () => console.log("Loading..."),
@@ -254,13 +271,18 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
 
     const { config: minipoolDistroConfig } = usePrepareContractWrite({
         address: withdrawalAddress,
-        abi: RocketSplitABI.abi,
+        abi: RocketSplitABI,
         functionName: "distributeMinipoolBalance",
-        args: [selectedMinipools.map(claim => claim.result)],
+        args: [
+            rewardsOnly
+                ? selectedMinipools.filter(minipool => minipool.finalized).map(claim => claim.result)
+                : selectedMinipools.filter(minipool => !minipool.finalized).map(claim => claim.result),
+            rewardsOnly
+        ],
         enabled: selectedMinipools.length > 0,
         onLoading: () => console.log("Loading..."),
         onError: (error) => console.log("Error: " + error),
-    })
+    });
 
     const { write: distributeMinipoolBalance, data: distributeMinipoolBalanceData } = useContractWrite(minipoolDistroConfig);
 
@@ -268,13 +290,14 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
         hash: distributeMinipoolBalanceData?.hash,
         onSuccess: (result) => {
             // Read the contract again to update the minipool balances.
+            setSelectedMinipools([]);
             refreshMinipools?.();
         }
     });
 
     const { config: feeDistributorConfig } = usePrepareContractWrite({
         address: withdrawalAddress,
-        abi: RocketSplitABI.abi,
+        abi: RocketSplitABI,
         functionName: "claimDistributorRewards",
         args: [],
         onLoading: () => console.log("Loading..."),
@@ -314,6 +337,12 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
             // Add minipool to selectedMinipools if it's not there
             setSelectedMinipools([...selectedMinipools, minipool]);
         }
+    }
+
+
+    const distributeExitedMinipools = () => {
+        setRewardsOnly(false);
+        distributeMinipoolBalance?.();
     }
 
     return (
@@ -367,6 +396,7 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
               </>
             }
         </div>
+        { nodeMinipools.filter(minipool => !minipool.finalized).length > 0 &&
         <div className="rocket-panel">
             {distributeMinipoolBalanceLoading &&
                 <div className="action-panel loading">
@@ -375,34 +405,83 @@ const ClaimIntervals = ({ nodeAddress, withdrawalAddress }) => {
                 </div>
             }
             <h2>Minipool Balances </h2>
-                <p>You have {minipoolCount.toString()} Minipool(s).</p>
+                <p>You have {minipoolCount.toString()} Active Minipool(s).</p>
                 <button className="btn-action" onClick={() => distributeMinipoolBalance?.()}  disabled={selectedMinipools.length === 0}>Distribute Minipool Balance of {claimableMinipoolETH}</button>
 
                 <table>
                 <thead>
                     <tr>
                         <th>Minipool Address</th>
+                        <th>Finalised?</th>
                         <th>Amount ETH</th>
                         <th><input type="checkbox" onClick={(e) => setSelectedMinipools(e.target.checked ? nodeMinipools : []) }/></th>
                     </tr>
                 </thead>
                 <tbody>
-                    {nodeMinipools.map((minipool, index) => (
+                {nodeMinipools.filter(minipool => !minipool.finalized).map((minipool, index) => (
                     <tr key={index}>
-                        <td><AddressDisplay address={minipool.result}/></td>
-                        <td>{minipool.balance ? parseFloat(formatEther(minipool.balance)).toFixed(4) + " ETH" : "0 ETH"}</td>
-                        <td>
+                    <td><AddressDisplay address={minipool.result} /></td>
+                    <td>{minipool.finalized ? "Yes" : "No"}</td>
+                    <td>{minipool.balance ? parseFloat(formatEther(minipool.balance)).toFixed(4) + " ETH" : "0 ETH"}</td>
+                    <td>
                         <input
-                            type="checkbox"
-                            checked={selectedMinipools.includes(minipool)}
-                            onChange={() => minipoolToggle(index)}
+                        type="checkbox"
+                        checked={selectedMinipools.includes(minipool)}
+                        onChange={() => minipoolToggle(index)}
                         />
-                        </td>
+                    </td>
                     </tr>
-                    ))}
+                ))}
                 </tbody>
             </table>
         </div>
+        }
+
+        { nodeMinipools.length === 0 &&
+            <div className="rocket-panel">
+                <h2>Node has no active minipools.</h2>
+            </div>
+        }
+
+        { nodeMinipools.filter(minipool => minipool.finalized).length > 0 &&
+        <div className="rocket-panel">
+            {distributeMinipoolBalanceLoading &&
+                <div className="action-panel loading">
+                    <div className="spinner"></div>
+                    <p>Distribute Exited Minipools</p>
+                </div>
+            }
+            <h2>Distribute Exited Minipools</h2>
+                <p>You have {minipoolCount.toString()} Exited Minipool(s).</p>
+                <button className="btn-action" onClick={() => distributeExitedMinipools()}  disabled={selectedMinipools.length === 0}>Distribute Minipool Balance of {claimableMinipoolETH}</button>
+
+                <table>
+                <thead>
+                    <tr>
+                        <th>Minipool Address</th>
+                        <th>Finalised?</th>
+                        <th>Amount ETH</th>
+                        <th><input type="checkbox" onClick={(e) => setSelectedMinipools(e.target.checked ? nodeMinipools : []) }/></th>
+                    </tr>
+                </thead>
+                <tbody>
+                {nodeMinipools.filter(minipool => !minipool.finalized).map((minipool, index) => (
+                    <tr key={index}>
+                    <td><AddressDisplay address={minipool.result} /></td>
+                    <td>{minipool.finalized ? "Yes" : "No"}</td>
+                    <td>{minipool.balance ? parseFloat(formatEther(minipool.balance)).toFixed(4) + " ETH" : "0 ETH"}</td>
+                    <td>
+                        <input
+                        type="checkbox"
+                        checked={selectedMinipools.includes(minipool)}
+                        onChange={() => minipoolToggle(index)}
+                        />
+                    </td>
+                    </tr>
+                ))}
+                </tbody>
+            </table>
+        </div>}
         <div className="rocket-panel">
             {claimDistributorRewardsLoading &&
                 <div className="action-panel loading">

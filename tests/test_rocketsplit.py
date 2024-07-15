@@ -76,7 +76,7 @@ def deployer(accounts):
     return accounts[5]
 
 @pytest.fixture()
-def rocketsplitFactory(project, accounts, rocketStorage, deployer):
+def rocketsplitFactory(project, rocketStorage, deployer):
     factory = project.RocketSplit.deploy(rocketStorage.address, sender=deployer)
     return factory
 
@@ -308,3 +308,84 @@ def test_distribute_minipool_balances(migratedMarriage, existingNode, rocketMini
 
     assert minipool.balance == 0
     assert migratedMarriage.balance > 0 # TODO what is the correct math here?
+
+def test_set_rpl_withdrawal_address(marriageETHFeeOnly,
+                                    rocketNodeManager,
+                                    ETHOwner,
+                                    ETHOwnerNode,
+                                    freshAccount,
+                                    RPLToken):
+    # Make sure the fresh account does not have any RPL.
+    assert RPLToken.balanceOf(freshAccount) == 0
+
+    # Read the RPL withdrawal address is set to the marriageETHFeeOnly address
+    assert rocketNodeManager.getNodeRPLWithdrawalAddress(ETHOwnerNode.address) == marriageETHFeeOnly.address
+
+    # Ensure the node operator can not set the RPL withdrawal address.
+    with reverts("Only a tx from a node's RPL withdrawal address can update it"):
+        rocketNodeManager.setRPLWithdrawalAddress(ETHOwnerNode.address, freshAccount, True, sender=ETHOwner)
+
+    # Problem here is that Rocketsplit does not have the ability to change back.
+
+def test_steal_rpl(freshNode,
+                   freshMarriageUnconfirmed,
+                   rocketNodeManager,
+                   rocketStorage,
+                   ETHOwner,
+                   RPLOwner,
+                   RPLToken,
+                   rocketNodeStaking,
+                   chain,
+                   rocketDAOProtocolSettingsRewards):
+    # Make sure the ETH Owner does not have any RPL.
+    assert RPLToken.balanceOf(ETHOwner) == 0
+
+    # Ensure the node RPL withdrawal address is currently set to the fresh node account.
+    assert rocketNodeManager.getNodeRPLWithdrawalAddress(freshNode.address) == freshNode.address
+
+    # Lets first set the RPL address before we migrate to Rocketsplit.
+    # This is step 1 in what a bad actor could do.
+    rocketNodeManager.setRPLWithdrawalAddress(freshNode.address, ETHOwner, True, sender=freshNode)
+
+    # Ensure the node address is currently set to the ETHOwner account.
+    assert rocketNodeManager.getNodeRPLWithdrawalAddress(freshNode.address) == ETHOwner
+
+    # Now lets migrate the node to Rocketsplit.
+    rocketStorage.setWithdrawalAddress(freshNode.address, freshMarriageUnconfirmed.address, False, sender=freshNode)
+    freshMarriageUnconfirmed.confirmWithdrawalAddress(sender=ETHOwner)
+
+    # Now lets ensure the RPL withdrawal address is still the ETH owner.
+    assert rocketNodeManager.getNodeRPLWithdrawalAddress(freshNode.address) == ETHOwner
+
+    # Make sure the ETH withdrawal address is set to the marriage.
+    assert rocketStorage.getNodeWithdrawalAddress(freshNode.address) == freshMarriageUnconfirmed.address
+
+    # Lets stake some RPL into the marriage.
+    RPLToken.approve(freshMarriageUnconfirmed.address, "2 ETH", sender=RPLOwner)
+
+    # This should fail as the RPL withdrawal address is not the marriage.
+    with reverts("Not allowed to stake for"):
+        freshMarriageUnconfirmed.stakeRPL("2 ETH", sender=RPLOwner)
+
+    # Lets explitly allow the RPLOwner to stake on the this node.
+
+    # First lets test if the node can not set this themselves.
+    with reverts("Must be called from RPL withdrawal address"):
+        rocketNodeStaking.setStakeRPLForAllowed(RPLOwner, True, sender=freshNode)
+
+    # Now lets test if the RPL withdrawal address can set this.
+    # This is step 2 in what a bad actor could do.
+    rocketNodeStaking.setStakeRPLForAllowed(freshNode.address, freshMarriageUnconfirmed.address, True, sender=ETHOwner)
+
+    # Now we should be able to stake as the RPLOwner.
+    freshMarriageUnconfirmed.stakeRPL("2 ETH", sender=RPLOwner)
+
+    # Lets distirbute the stake.
+    # Now, lets withdraw the RPL.
+    # First from the node.
+    # We need to go into to the future to get past the DAO rocketDAOProtocolSettingsRewards.getRewardsClaimIntervalTime setting.
+    chain.pending_timestamp += rocketDAOProtocolSettingsRewards.getRewardsClaimIntervalTime()
+    rocketNodeStaking.withdrawRPL(freshNode.address, "2 ETH", sender=ETHOwner)
+
+    # Did the ETHOwner steal the RPL?
+    assert RPLToken.balanceOf(ETHOwner) == 2 * 10 ** 18

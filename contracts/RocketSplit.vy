@@ -215,14 +215,14 @@ def withdrawRewards():
 
   amount: uint256 = staticcall RPLToken.balanceOf(self)
   fee: uint256 = self._calculateFee(amount, self.RPLFee)
+  assert extcall RPLToken.transfer(self.RPLOwner, amount - fee), "transfer reward"
   if fee != 0:
     assert extcall RPLToken.transfer(self.ETHOwner, fee), "transfer fee"
-  assert extcall RPLToken.transfer(self.RPLOwner, amount - fee), "transfer reward"
 
   fee = self._calculateFee(self.balance, self.ETHFee)
+  send(self.ETHOwner, self.balance - fee, gas=msg.gas)
   if fee != 0:
     send(self.RPLOwner, fee, gas=msg.gas)
-  send(self.ETHOwner, self.balance, gas=msg.gas)
 
 @external
 def confirmWithdrawalAddress():
